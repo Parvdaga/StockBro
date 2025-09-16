@@ -1,14 +1,21 @@
-MIT License © 2025 StockBro Contributors
+MIT License
 
-```
+Copyright (c) 2025 StockBro Contributors
 
----
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-If you like, I can also prepare a version of the README that’s shorter / more polished or tailor it to include specific sections (e.g. use-cases, API details, getting started examples). Do you want me to generate that?
-::contentReference[oaicite:4]{index=4}
-```
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-[1]: https://arxiv.org/abs/2505.15155?utm_source=chatgpt.com "R&D-Agent-Quant: A Multi-Agent Framework for Data-Centric Factors and Model Joint Optimization"
-[2]: https://arxiv.org/abs/2502.07254?utm_source=chatgpt.com "Fairness in Agentic AI: A Unified Framework for Ethical and Equitable Multi-Agent System"
-[3]: https://www.suaspress.org/ojs/index.php/JIEAS/article/view/v3n1a02?utm_source=chatgpt.com "Multi-Agent Large Language Models for Traditional Finance and ..."
-[4]: https://arxiv.org/abs/2505.06947?utm_source=chatgpt.com "The Wisdom of Agent Crowds: A Human-AI Interaction Innovation Ignition Framework"
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
