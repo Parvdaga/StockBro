@@ -1,97 +1,118 @@
 # StockBro AI
 
-StockBro AI is an agentic AI-driven multi-agent system inspired by **Finsage AI**. It supports retail investors, analysts, and financial enthusiasts by combining real-time market data, news sentiment, and scenario simulations, all powered by advanced LLMs and coordinated agents.
+StockBro AI is an AI-driven multi-agent system designed to empower retail investors, analysts, and financial enthusiasts with real-time stock market insights, news sentiment analysis, and advanced scenario-based simulations.
 
----
+It combines Next.js frontend with ChatGPT-style chat, intelligent Python-based finance agents, and powerful LLMs to deliver an interactive and explainable financial analysis platform.
 
 ## 🔍 Overview
 
 StockBro AI provides:
 
-- **Real-time stock market insights & analytics**, including metrics like P/E, EPS, etc.  
-- **Multi-agent architecture** using Phidata (or another orchestrator), where different agents specialize in different tasks (e.g. data fetching, sentiment analysis, model simulation).  
-- **Built-in LLM agents** using Llama 3.1 (8B Instant) for intelligent reasoning, summarization, interpretation.  
-- **Live news fetching & sentiment / thematic analysis** via APIs (Finnhub, NewsAPI, etc.).  
-- **What-if / scenario simulation tools**: users can explore how changes in key financial variables might play out.  
-- **Extensible framework**: easy to add new agents, integrate new APIs, or branch out into frontend/dashboard/model components.
-
----
+- Real-time stock market insights & analytics (e.g., price, volume, P/E, EPS, revenue)
+- Multi-agent architecture powered by Python + Phidata (or LangChain), where specialized agents handle finance, news, and simulations
+- Built-in LLM agents (Llama 3.1 via GroqCloud or Gemini fallback) for intelligent reasoning, summarization, and narrative generation
+- Live financial news fetching & sentiment analysis using APIs such as Finnhub and NewsAPI
+- What-if simulations: explore how changes in financial variables affect outcomes with tables, charts, and narratives
+- Extensible, modular design: easily plug in new agents, APIs, features, or dashboards
 
 ## 🛠 Tech Stack
 
-| Component | Tools / Frameworks |
-|-----------|---------------------|
-| Language | Python |
-| LLM | Llama 3.1 (8B Instant) — via GroqCloud API (or fallback) |
-| API Sources | Finnhub, NewsAPI, OpenAI, possibly others |
-| Agent Orchestration | Phidata (or similar multi-agent runtime) |
-| Data Processing & Visualization | Pandas, Matplotlib / Plotly, etc. |
-| Frontend / Dashboard (optional but planned) | React / Next.js or similar |
-
----
+| Layer | Technology/Tools |
+|-------|------------------|
+| Frontend & API | Next.js (serverless API routes, auth, UI) |
+| Agent Core | Python, Phidata, LangChain |
+| LLMs | Llama 3.1 (GroqCloud), Gemini APIs |
+| Data/Processing | Pandas, NumPy, Plotly/Matplotlib, Scikit-learn |
+| Database/Auth | Supabase (PostgreSQL + auth) |
+| Hosting (Frontend) | Vercel |
+| Hosting (Agents) | Railway (Python microservices) |
+| CI/CD | GitHub Actions |
 
 ## ⚙️ Environment Setup
 
-Before running the project, set up your environment variables in a `.env` file in the root directory:
+Create a `.env` file to configure environment variables before running:
 
 ```bash
-GROQ_API_KEY=your_groqcloud_key
+# Backend Agents
 FINNHUB_API_KEY=your_finnhub_key
 NEWS_API_KEY=your_newsapi_key
-OPENAI_API_KEY=your_openai_key  # optional / fallback
-````
+GROQ_API_KEY=your_groqcloud_key
+OPENAI_API_KEY=your_openai_key  # optional fallback
 
----
+# Frontend (Next.js)
+NEXT_PUBLIC_API_URL=https://api.stockbro.ai
+NEXT_PUBLIC_SUPABASE_URL=https://xyzcompany.supabase.co
+NEXT_PUBLIC_SUPABASE_KEY=your_supabase_key
+```
 
 ## 🚀 Installation & Running
+
+Clone repo and set up virtual environment:
 
 ```bash
 git clone https://github.com/your-username/StockBroAI.git
 cd StockBroAI
+
+# Setup Backend (Agents)
 python -m venv venv
-source venv/bin/activate        # or appropriate virtualenv command
-pip install -r requirements.txt
+source venv/bin/activate   # or `venv\Scripts\activate` for Windows
+pip install -r agents/requirements.txt
+
+# Run Orchestrator / Agents
+python agents/orchestrator.py
 ```
 
-To run:
+Run frontend in dev mode:
 
 ```bash
-# Start the agent system/orchestrator
-phidata app run    # or whatever command you use to launch
-
-# (If frontend exists)
 cd frontend
 npm install
 npm run dev
 ```
 
----
-## 📚 Related Research & Recent Papers (2025)
+- Backend runs on Railway (microservices)
+- Frontend/API hosted on Vercel
 
-| Title                                                             | Authors          | Summary                                                                                                                                                                                                                                                   | Link                                                                                                               |
-| ----------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| AI-Driven Financial Advisory: The Rise of Robo-Advisors           | A. Kashyap       | Explores how AI-driven robo-advisors transform personal finance, providing automated planning and investing. Covers accessibility, efficiency, issues (privacy, bias, regulation), and future directions. Highlights democratization and industry impact. | [Read](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5268858)                                                |
-| An AI analyst made 30 years of stock picks - Stanford Report      | E. deHaan et al. | A large-scale longitudinal experiment: AI analyst outperformed 93% of mutual fund managers over 30 years using scalable automation and diverse variables. Raises implications for future asset management.                                                | [Read](https://news.stanford.edu/stories/2025/06/ai-stock-analyst-analysis-performance-human-mutual-fund-managers) |
-| Leveraging AI Multi-Agent Systems in Financial Analysis           | R. Bhattacharya  | Reviews AI multi-agent systems in financial analytics: scalable agent-based workflows, collaboration across finance tasks, risk modeling, and explainability challenges.                                                                                  | [Read](https://cacm.acm.org/blogcacm/leveraging-ai-multi-agent-systems-in-financial-analysis)                      |
-| Large Language Models in Equity Markets: Applications and Risks   | Anonymous        | A review of 84 studies (2022–2025) on LLMs in equity analysis. Finds strengths in sentiment mining, summarization, and anomaly detection, while highlighting risks in overfitting and ethical use.                                                        | [Read](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5297432)                                                |
-| Architectures and Challenges of AI Multi-Agent Systems in Finance | S. Joshi         | Examines multi-agent architectures (LangChain, Phidata, AutoGen) in finance. Discusses latency, orchestration, transparency, and regulatory challenges. Suggests modular solutions.                                                                       | [Read](https://journalcjast.com/index.php/CJAST/article/view/6142)                                                 |
+## 📊 Core Features
 
----
+### ChatGPT-style Homepage
+- Ask questions like "What's the latest on AAPL?"
+- Real-time AI-powered responses with charts, news, and metrics
+- Suggested queries & scrollable history
 
-## 🎯 Potential Roadmap
+### Dashboard
+- Market snapshot & portfolio view
+- Watchlist integration with Supabase
+- News digest & interactive analytics charts
 
-Here are possible future directions:
+### Ticker Detail Page
+- Real-time charts & fundamentals
+- Analyst recommendations & sentiment analysis
+- What-if simulation panel
 
-1. **Frontend & Dashboard**: Interactive UI for watchlists, charts, alerts.
-2. **Model Extensions**: More advanced simulation agents (e.g. macroeconomic variables, risk models).
-3. **Explainability / Transparency**: Logging, summarization of agent reasoning.
-4. **Regulatory / Ethical Features**: Fairness, bias detection, handling sensitive/inaccurate news.
-5. **Productionization**: Dockerization, CI/CD, scaling, monitoring.
+### Watchlist
+- Track favorite stocks with quick add/remove
+- Snapshots of stock performance
 
----
+### What-If Simulation
+- Input custom scenarios (e.g., revenue growth changes)
+- Outputs sensitivity tables + narrative insights
+
+### Authentication
+- User accounts (signup/login)
+- Persistent sessions via Supabase
+
+## 📚 Related Research & Papers
+
+| Title | Authors | Summary | Link |
+|-------|---------|---------|------|
+| AI-Driven Financial Advisory: The Rise of Robo-Advisors | A. Kashyap | Explores how AI robo-advisors transform finance through automation. Covers efficiency, bias, regulation, accessibility, and industry impact. | [Read](link) |
+| An AI analyst made 30 years of stock picks - Stanford Report | E. deHaan et al. | Longitudinal study: AI outperformed 93% of mutual fund managers over 30 years. Demonstrates scalability and implications for asset management. | [Read](link) |
+| Leveraging AI Multi-Agent Systems in Financial Analysis | R. Bhattacharya | Reviews multi-agent workflows in financial analytics, scalable collaboration, risk modeling, and explainability challenges. | [Read](link) |
+| Large Language Models in Equity Markets: Applications and Risks | Anonymous | Meta-study of 84 papers on LLMs in finance. Finds strong sentiment mining and anomaly detection capabilities, but highlights risks in overfitting and ethics. | [Read](link) |
+| Architectures and Challenges of AI Multi-Agent Systems in Finance | S. Joshi | Reviews frameworks like LangChain, Phidata in finance. Focuses on orchestration, latency, transparency, and regulatory complexities. | [Read](link) |
+
 
 ## ⚠️ Disclaimer
 
-The outputs of StockBro AI are **not financial advice**. Always do your own research, consult professionals before making investment decisions. Models and agents may have errors or outdated information.
-
----
+StockBro AI outputs are not financial advice. Always consult professionals and conduct your own research before making investment decisions. Models and agents may produce errors, outdated responses, or biased interpretations.
