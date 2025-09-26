@@ -106,12 +106,11 @@ npm run dev
 
 | Title | Authors | Summary | Link |
 |-------|---------|---------|------|
-| AI-Driven Financial Advisory: The Rise of Robo-Advisors | A. Kashyap | Explores how AI robo-advisors transform finance through automation. Covers efficiency, bias, regulation, accessibility, and industry impact. | [Read](link) |
-| An AI analyst made 30 years of stock picks - Stanford Report | E. deHaan et al. | Longitudinal study: AI outperformed 93% of mutual fund managers over 30 years. Demonstrates scalability and implications for asset management. | [Read](link) |
-| Leveraging AI Multi-Agent Systems in Financial Analysis | R. Bhattacharya | Reviews multi-agent workflows in financial analytics, scalable collaboration, risk modeling, and explainability challenges. | [Read](link) |
-| Large Language Models in Equity Markets: Applications and Risks | Anonymous | Meta-study of 84 papers on LLMs in finance. Finds strong sentiment mining and anomaly detection capabilities, but highlights risks in overfitting and ethics. | [Read](link) |
-| Architectures and Challenges of AI Multi-Agent Systems in Finance | S. Joshi | Reviews frameworks like LangChain, Phidata in finance. Focuses on orchestration, latency, transparency, and regulatory complexities. | [Read](link) |
-
+| AI-Driven Financial Advisory: The Rise of Robo-Advisors | A. Kashyap | Examines the transformational impact of AI-powered robo-advisors on financial services, focusing on automation, efficiency, potential biases, regulatory issues, broader accessibility, and their effects on the finance industry. | [Read](https://example.com/ai-driven-financial-advisory) |
+| An AI Analyst Made 30 Years of Stock Picks – Stanford Report | E. deHaan et al. | Presents a 30-year longitudinal study where an AI analyst outperformed 93% of mutual fund managers, highlighting the scalability and game-changing implications for asset management. | [Read](https://example.com/stanford-ai-analyst-stock-picks) |
+| Leveraging AI Multi-Agent Systems in Financial Analysis | R. Bhattacharya | Discusses the integration of multi-agent AI systems in financial analytics, highlighting collaborative workflows, advanced risk modeling, and the ongoing challenges of explainability in finance. | [Read](https://example.com/ai-multi-agent-financial-analysis) |
+| Large Language Models in Equity Markets: Applications and Risks | Anonymous | Synthesizes findings from 84 research papers regarding LLMs in equity finance, emphasizing their power in sentiment mining and detecting market anomalies, while also addressing risks like overfitting and ethical considerations. | [Read](https://example.com/llms-equity-markets-applications-risks) |
+| Architectures and Challenges of AI Multi-Agent Systems in Finance | S. Joshi | Reviews advanced frameworks such as LangChain and Phidata for finance, focusing on multi-agent orchestration, latency issues, transparency, and regulatory hurdles unique to the sector. | [Read](https://example.com/ai-multi-agent-architectures-finance) |
 
 ## ⚠️ Disclaimer
 
