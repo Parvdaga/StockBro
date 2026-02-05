@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+phidata
+python-dotenv
+yfinance
+pandas
+numpy
+plotly
+groq
+google-generativeai
+pydantic
+requests
+sqlalchemy
+asyncpg
+openai
+duckduckgo-search
+newsapi-python
