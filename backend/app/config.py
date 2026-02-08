@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -14,17 +15,17 @@ class Settings:
     DB_URL: str = os.getenv("DB_URL", "sqlite+aiosqlite:///./stockbro.db")
     
     # API Keys
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY")
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
-    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY")
-    PHIDATA_API_KEY: str = os.getenv("PHI_API_KEY")
+    GROQ_API_KEY: Optional[str] = os.getenv("GROQ_API_KEY")
+    OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
+    GOOGLE_API_KEY: Optional[str] = os.getenv("GOOGLE_API_KEY")
+    PHIDATA_API_KEY: Optional[str] = os.getenv("PHI_API_KEY")
     
     # Groww API (Indian Market)
-    GROWW_API_KEY: str = os.getenv("GROWW_API_KEY")
-    GROWW_API_SECRET: str = os.getenv("GROWW_API_SECRET")
-    GROWW_USER_ID: str = os.getenv("GROWW_USER_ID")
+    GROWW_API_KEY: Optional[str] = os.getenv("GROWW_API_KEY")
+    GROWW_API_SECRET: Optional[str] = os.getenv("GROWW_API_SECRET")
+    GROWW_USER_ID: Optional[str] = os.getenv("GROWW_USER_ID")
     
     # Optional tools
-    GNEWS_API_KEY: str = os.getenv("GNEWS_API_KEY")
+    GNEWS_API_KEY: Optional[str] = os.getenv("GNEWS_API_KEY")
 
 settings = Settings()

@@ -9,16 +9,27 @@ from app.agents.news_agent import news_agent
 from phi.model.google import Gemini
 
 # Determine LLM Provider
+# Priority: Groq > OpenAI > Gemini (to avoid Gemini deprecation warnings)
 def get_model():
-    if settings.GOOGLE_API_KEY:
-        return Gemini(id="gemini-2.0-flash", api_key=settings.GOOGLE_API_KEY)
-    elif settings.GROQ_API_KEY:
+    """
+    Get the LLM model based on available API keys.
+    Priority order: Groq (fastest, no deprecation) > OpenAI > Gemini
+    """
+    if settings.GROQ_API_KEY:
+        print("🚀 Using Groq model: llama-3.3-70b-versatile")
         return Groq(id="llama-3.3-70b-versatile", api_key=settings.GROQ_API_KEY)
     elif settings.OPENAI_API_KEY:
+        print("🤖 Using OpenAI model: gpt-4o")
         return OpenAIChat(model="gpt-4o", api_key=settings.OPENAI_API_KEY)
+    elif settings.GOOGLE_API_KEY:
+        print("⚠️  Using Gemini (may have deprecation warnings)")
+        return Gemini(id="gemini-2.0-flash", api_key=settings.GOOGLE_API_KEY)
     else:
-        # Fallback default
-        return Gemini(id="gemini-2.0-flash")
+        raise ValueError(
+            "No LLM API key found. Please set GROQ_API_KEY, OPENAI_API_KEY, "
+            "or GOOGLE_API_KEY in your .env file."
+        )
+
 
 # Database Storage for Memory
 storage = None
