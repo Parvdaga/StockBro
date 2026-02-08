@@ -2,8 +2,10 @@ fastapi
 uvicorn
 phidata
 python-dotenv
-smartapi-python
-pyotp
+growwapi
+pycountry
+psycopg2-binary
+aiosqlite
 pandas
 numpy
 plotly

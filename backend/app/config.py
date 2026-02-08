@@ -19,13 +19,12 @@ class Settings:
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY")
     PHIDATA_API_KEY: str = os.getenv("PHI_API_KEY")
     
-    # Angel One SmartAPI (Indian Market)
-    ANGEL_API_KEY: str = os.getenv("ANGEL_API_KEY")
-    ANGEL_CLIENT_CODE: str = os.getenv("ANGEL_CLIENT_CODE")
-    ANGEL_PASSWORD: str = os.getenv("ANGEL_PASSWORD")
-    ANGEL_TOTP_KEY: str = os.getenv("ANGEL_TOTP_KEY")
+    # Groww API (Indian Market)
+    GROWW_API_KEY: str = os.getenv("GROWW_API_KEY")
+    GROWW_API_SECRET: str = os.getenv("GROWW_API_SECRET")
+    GROWW_USER_ID: str = os.getenv("GROWW_USER_ID")
     
     # Optional tools
-    NEWS_API_KEY: str = os.getenv("NEWS_API_KEY")
+    GNEWS_API_KEY: str = os.getenv("GNEWS_API_KEY")
 
 settings = Settings()
