@@ -1,20 +1,56 @@
+# FastAPI and server
 fastapi
-uvicorn
-phidata
+uvicorn[standard]
 python-dotenv
-growwapi
-pycountry
-psycopg2-binary
+
+# AI and agents
+phidata
+groq
+google-generativeai
+openai
+
+# Database
+sqlalchemy
+alembic
+asyncpg
 aiosqlite
+psycopg2-binary
+
+# Supabase
+supabase
+
+# Authentication & Security
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+
+# Caching
+redis
+hiredis
+
+# Data processing
 pandas
 numpy
 plotly
-groq
-google-generativeai
-pydantic
-requests
-sqlalchemy
-asyncpg
-openai
+
+# API integrations
+growwapi
+pycountry
 duckduckgo-search
 newsapi-python
+finnhub-python
+requests
+
+# Validation
+pydantic
+pydantic[email]
+
+# Utilities
+loguru
+python-dateutil
+
+# Testing
+pytest
+pytest-asyncio
+pytest-cov
+httpx

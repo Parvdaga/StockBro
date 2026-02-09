@@ -1,34 +1,59 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.api.endpoints import router as api_router
+from app.api.v1.router import router as api_v1_router
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle events"""
+    # Startup
+    print(f"🚀 Starting {settings.PROJECT_NAME} v{settings.VERSION}")
+    print(f"📊 Database: {settings.DB_URL.split('@')[-1] if '@' in settings.DB_URL else settings.DB_URL}")
+    print(f"🤖 LLM: {'Groq' if settings.GROQ_API_KEY else 'Gemini' if settings.GOOGLE_API_KEY else 'None'}")
+    yield
+    # Shutdown
+    print("👋 Shutting down...")
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    version=settings.VERSION,
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan
 )
 
 # CORS Configuration
-origins = [
-    "http://localhost:3000", # Next.js / React
-    "http://localhost:8000",
-    "*" # Permissive for development
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include Router
-app.include_router(api_router, prefix=settings.API_V1_STR)
+# Include API v1 router
+app.include_router(api_v1_router, prefix=settings.API_V1_STR)
+
 
 @app.get("/")
 def root():
-    return {"message": "Welcome to StockBro API"}
+    return {
+        "message": "Welcome to StockBro API",
+        "version": settings.VERSION,
+        "docs": f"{settings.API_V1_STR}/docs"
+    }
+
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "version": settings.VERSION,
+        "database": "connected"
+    }
+
 
 if __name__ == "__main__":
     import uvicorn

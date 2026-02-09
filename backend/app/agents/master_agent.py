@@ -1,34 +1,11 @@
 from phi.agent import Agent
-from phi.model.groq import Groq
-from phi.model.openai import OpenAIChat
 from phi.storage.agent.sqlite import SqlAgentStorage
 from app.config import settings
+from app.agents.shared_model import get_model
+
+# Import agents after shared_model to avoid circular imports
 from app.agents.finance_agent import finance_agent
 from app.agents.news_agent import news_agent
-
-from phi.model.google import Gemini
-
-# Determine LLM Provider
-# Priority: Groq > OpenAI > Gemini (to avoid Gemini deprecation warnings)
-def get_model():
-    """
-    Get the LLM model based on available API keys.
-    Priority order: Groq (fastest, no deprecation) > OpenAI > Gemini
-    """
-    if settings.GROQ_API_KEY:
-        print("🚀 Using Groq model: llama-3.3-70b-versatile")
-        return Groq(id="llama-3.3-70b-versatile", api_key=settings.GROQ_API_KEY)
-    elif settings.OPENAI_API_KEY:
-        print("🤖 Using OpenAI model: gpt-4o")
-        return OpenAIChat(model="gpt-4o", api_key=settings.OPENAI_API_KEY)
-    elif settings.GOOGLE_API_KEY:
-        print("⚠️  Using Gemini (may have deprecation warnings)")
-        return Gemini(id="gemini-2.0-flash", api_key=settings.GOOGLE_API_KEY)
-    else:
-        raise ValueError(
-            "No LLM API key found. Please set GROQ_API_KEY, OPENAI_API_KEY, "
-            "or GOOGLE_API_KEY in your .env file."
-        )
 
 
 # Database Storage for Memory
@@ -49,7 +26,7 @@ master_agent = Agent(
     model=get_model(),
     team=[finance_agent, news_agent],
     storage=storage,
-    add_history_to_messages=True,
+    add_history_to_messages=False,  # Disabled to fix AttributeError - history managed by chat service
     num_history_responses=5,
     instructions=[
         "You are 'StockBro', a helpful and polite financial advisor.",

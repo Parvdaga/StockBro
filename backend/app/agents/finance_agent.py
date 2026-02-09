@@ -1,5 +1,6 @@
 from phi.agent import Agent
 from app.config import settings
+from app.agents.shared_model import get_model
 import traceback
 
 # specific import might usually be from growwapi import GrowwAPI or similar. 
@@ -18,11 +19,8 @@ def get_groww_session():
         if not GrowwAPI:
             return None
         
-        # Initialize with V2 API flow (assuming based on env vars available)
-        groww = GrowwAPI(
-            api_key=settings.GROWW_API_KEY,
-            api_secret=settings.GROWW_API_SECRET
-        )
+        # Initialize with auth token (GROWW_API_KEY from .env)
+        groww = GrowwAPI(settings.GROWW_API_KEY)
         return groww
     except Exception as e:
         print(f"Groww Connection Error: {e}")
@@ -30,41 +28,56 @@ def get_groww_session():
 
 def get_stock_price(symbol: str):
     """
-    Retrieves the current market price (LTP) for a given stock symbol.
+    Retrieves the current market price for a given stock symbol.
     Args:
-        symbol (str): The stock symbol (e.g., 'RELIANCE', 'TCS'). 
-                      The agent should try to append 'NSE' if needed.
+        symbol (str): The stock symbol (e.g., 'RELIANCE', 'TCS')
     """
     groww = get_groww_session()
     if not groww:
         return "Error: Could not connect to Groww API."
 
     try:
-        # Fetch data (Pseudo-code matching typical SDK usage)
-        # We might need to map symbol to a unique ID (ISIN or Groww Search ID)
-        # Usually APIs have a search endpoint.
+        # Format symbol with exchange prefix (default to NSE)
+        if not symbol.startswith(('NSE-', 'BSE-')):
+            groww_symbol = f"NSE-{symbol.upper()}"
+        else:
+            groww_symbol = symbol.upper()
         
-        # 1. Search for script
-        search_results = groww.search(symbol)
-        if not search_results or len(search_results) == 0:
-             return f"Error: Could not find symbol '{symbol}'."
+        # Get instrument data using the correct method
+        response = groww.get_instrument_by_groww_symbol(groww_symbol=groww_symbol)
         
-        target_script = search_results[0] # Best match
-        script_id = target_script.get('id') or target_script.get('search_id')
+        if not response:
+            return f"Error: Could not find data for symbol '{symbol}'."
         
-        # 2. Get Live Data
-        live_data = groww.get_live_data(script_id)
+        # DEBUG: Print full response to see structure
+        print(f"DEBUG - Full Groww response for {symbol}:")
+        print(f"Type: {type(response)}")
+        print(f"Keys: {response.keys() if isinstance(response, dict) else 'N/A'}")
+        print(f"Data: {response}")
         
-        price = live_data.get('ltp')
-        return f"The current price of {target_script.get('title', symbol)} is ₹{price}"
+        # Extract price from response
+        # Try multiple possible field names
+        price = (response.get('ltp') or response.get('close_price') or 
+                response.get('current_price') or response.get('price') or
+                response.get('lastPrice') or response.get('last_price'))
+        
+        company_name = (response.get('company_name') or response.get('name') or 
+                       response.get('companyName') or response.get('symbol') or symbol)
+        
+        if price:
+            return f"The current price of {company_name} is ₹{price}"
+        else:
+            # Return the full response so we can see what fields are available
+            return f"Price field not found for {symbol}. Available fields: {list(response.keys()) if isinstance(response, dict) else response}"
         
     except Exception as e:
-        return f"Error executing trade fetch: {str(e)}"
+        return f"Error fetching stock price: {str(e)}"
 
-# Create the Agent
+# Create the Agent with explicit model to avoid OpenAI default
 finance_agent = Agent(
     name="Finance Agent",
     role="Get financial data",
+    model=get_model(),  # Use shared Groq/Gemini model
     tools=[get_stock_price],
     instructions=[
         "Use 'get_stock_price' to find the latest price of a stock.",
