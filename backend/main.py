@@ -10,7 +10,7 @@ async def lifespan(app: FastAPI):
     """Lifecycle events"""
     # Startup
     print(f"🚀 Starting {settings.PROJECT_NAME} v{settings.VERSION}")
-    print(f"📊 Database: {settings.DB_URL.split('@')[-1] if '@' in settings.DB_URL else settings.DB_URL}")
+    print(f"📊 Database (Supabase): {settings.SUPABASE_URL}")
     print(f"🤖 LLM: {'Groq' if settings.GROQ_API_KEY else 'Gemini' if settings.GOOGLE_API_KEY else 'None'}")
     yield
     # Shutdown

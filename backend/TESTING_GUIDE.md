@@ -17,44 +17,39 @@ You'll see an interactive interface with all available endpoints organized by ca
 
 Follow this sequence to test all major functions:
 
-### 1️⃣ **Authentication** (Create User & Login)
+### 1️⃣ **Authentication**
 
-#### A. Create Test User
+The backend uses **Supabase Auth**. Since authentication happens client-side, there are no backend endpoints for Signup/Login.
 
-1. In Swagger UI, find **`POST /api/v1/auth/signup`**
-2. Click **"Try it out"**
-3. Enter this JSON in the Request body:
-   ```json
-   {
-     "email": "test@example.com",
-     "password": "password123",
-     "full_name": "Test User"
-   }
+#### A. Get Access Token (Three Ways)
+
+**Option 1: Use Helper Script (Recommended for Backend Testing)**
+We've created a script to help you get a token easily.
+
+1. Open a new terminal
+2. Run:
+   ```bash
+   python scripts/get_access_token.py
    ```
-4. Click **"Execute"**
-5. ✅ **Expected Response:** `200 OK` with user data
+3. Enter your email and password
+4. Copy the `access_token` it prints
 
-#### B. Login
+**Option 2: From Frontend**
+1. Run the frontend application
+2. Login
+3. Open Developer Tools (F12) -> Application -> Local Storage
+4. Look for the Supabase key and copy the `access_token`
 
-1. Find **`POST /api/v1/auth/login`**
-2. Click **"Try it out"**
-3. Enter credentials (use `application/x-www-form-urlencoded`):
-   - **username:** `test@example.com`
-   - **password:** `password123`
-4. Click **"Execute"**
-5. ✅ **Expected Response:** `200 OK` with:
-   ```json
-   {
-     "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-     "token_type": "bearer"
-   }
-   ```
-6. **📋 COPY THE ACCESS TOKEN** - You'll need it for authenticated endpoints!
+**Option 3: Supabase Dashboard**
+1. Go to your Supabase project
+2. Authentication -> Users
+3. You can't see passwords, so you can't "login" directly here, but you can create users.
 
-#### C. Authorize in Swagger UI
+#### B. Authorize in Swagger UI
 
-1. Click the **🔓 Authorize** button at the top right
-2. Enter: `Bearer YOUR_ACCESS_TOKEN_HERE`
+1. Click the **🔓 Authorize** button at the top right of the Swagger page
+2. In the **HTTPBearer** value box, type:
+   `Bearer YOUR_COPIED_TOKEN`
 3. Click **"Authorize"**
 4. Click **"Close"**
 
@@ -160,31 +155,16 @@ Now you're authenticated and can test all protected endpoints! 🔐
 
 If you prefer command-line testing, here's the complete flow:
 
-### 1. Create User
+### 1. Get Token
+Run the python script to get your token:
 ```powershell
-$signupBody = @{
-    email = "test2@example.com"
-    password = "password123"
-    full_name = "Test User 2"
-} | ConvertTo-Json
-
-Invoke-WebRequest -Uri http://localhost:8000/api/v1/auth/signup `
-    -Method POST `
-    -ContentType "application/json" `
-    -Body $signupBody `
-    -UseBasicParsing
+python scripts/get_access_token.py
 ```
+Copy the token.
 
-### 2. Login & Get Token
+### 2. Set Token Variable
 ```powershell
-$loginResponse = Invoke-WebRequest -Uri http://localhost:8000/api/v1/auth/login `
-    -Method POST `
-    -ContentType "application/x-www-form-urlencoded" `
-    -Body "username=test2@example.com&password=password123" `
-    -UseBasicParsing
-
-$token = ($loginResponse.Content | ConvertFrom-Json).access_token
-Write-Host "Token: $token"
+$token = "YOUR_BEARER_TOKEN_HERE"
 ```
 
 ### 3. Test Chat with Token
