@@ -2,29 +2,36 @@
 Authentication endpoints
 """
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.dependencies import get_db
-from app.services.auth_service import AuthService
-from app.schemas.auth import UserSignupRequest, UserLoginRequest, TokenResponse, UserResponse
+from supabase import Client
+from app.core.dependencies import get_supabase, get_current_user
+from app.schemas.auth import UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/signup", response_model=UserResponse, status_code=201)
-async def signup(
-    request: UserSignupRequest,
-    db: AsyncSession = Depends(get_db)
+@router.get("/me", response_model=UserResponse)
+async def get_me(
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
-    """Register a new user"""
-    auth_service = AuthService(db)
-    return await auth_service.signup(request)
-
-
-@router.post("/login", response_model=TokenResponse)
-async def login(
-    request: UserLoginRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    """Login and get access tokens"""
-    auth_service = AuthService(db)
-    return await auth_service.login(request)
+    """
+    Get current authenticated user profile
+    
+    Note: Authentication (signup/login) is handled client-side via Supabase Auth.
+    This endpoint retrieves the user's profile from the database.
+    """
+    # Get user profile from database
+    response = supabase.table("profiles").select("*").eq("id", current_user.id).single().execute()
+    
+    if not response.data:
+        # If no profile exists, create one
+        profile_data = {
+            "id": str(current_user.id),
+            "email": current_user.email,
+            "full_name": current_user.user_metadata.get("full_name") if current_user.user_metadata else None,
+            "is_active": True
+        }
+        response = supabase.table("profiles").insert(profile_data).execute()
+        return response.data[0]
+    
+    return response.data

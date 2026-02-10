@@ -1,24 +1,17 @@
 """
-Dependency injection for services and database sessions
+Dependency injection for Supabase client and authentication  
 """
-from typing import AsyncGenerator, Optional
+from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.db import AsyncSessionLocal
-from app.core.security import verify_token
-from app.core.exceptions import UnauthorizedException
-from uuid import UUID
+from app.core.supabase_client import get_supabase_client, get_user_from_token
+from supabase import Client
 
 
-# Database dependency
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Get database session"""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+# Supabase client dependency
+def get_supabase() -> Client:
+    """Get Supabase client instance"""
+    return get_supabase_client()
 
 
 # Security dependency
@@ -26,25 +19,39 @@ security = HTTPBearer()
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-) -> UUID:
-    """Get current authenticated user ID from JWT token"""
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    supabase: Client = Depends(get_supabase)
+) -> dict:
+    """
+    Get current authenticated user from Supabase JWT token
+    
+    Returns:
+        User dict with id, email, etc.
+    
+    Raises:
+        HTTPException: If token is invalid or expired
+    """
     token = credentials.credentials
-    user_id = verify_token(token)
+    user = get_user_from_token(token)
     
-    if not user_id:
-        raise UnauthorizedException("Invalid or expired token")
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
-    return UUID(user_id)
+    return user
 
 
 # Optional auth - doesn't fail if no token
 async def get_current_user_optional(
-    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False))
-) -> Optional[UUID]:
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False)),
+    supabase: Client = Depends(get_supabase)
+) -> Optional[dict]:
     """Get current user if authenticated, None otherwise"""
     if not credentials:
         return None
     
-    user_id = verify_token(credentials.credentials)
-    return UUID(user_id) if user_id else None
+    user = get_user_from_token(credentials.credentials)
+    return user

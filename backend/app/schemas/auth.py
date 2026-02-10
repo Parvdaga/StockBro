@@ -7,29 +7,19 @@ from uuid import UUID
 from datetime import datetime
 
 
-# Auth request/response schemas
-class UserSignupRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(..., min_length=8)
-    full_name: Optional[str] = None
-
-
-class UserLoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-
-
+# User profile response (from Supabase)
 class UserResponse(BaseModel):
+    """User profile information"""
     model_config = ConfigDict(from_attributes=True)
     
     id: UUID
     email: str
-    full_name: Optional[str]
-    is_active: bool
+    full_name: Optional[str] = None
+    is_active: bool = True
     created_at: datetime
+
+
+# For updating user profile
+class UserUpdateRequest(BaseModel):
+    """Request to update user profile"""
+    full_name: Optional[str] = None

@@ -1,15 +1,13 @@
 """
-Chat endpoints - integrated with AI agents
+Chat endpoints - Supabase version integrated with AI agents
 """
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.dependencies import get_db, get_current_user
-from app.services.chat_service import ChatService
+from fastapi import APIRouter, Depends, HTTPException
+from supabase import Client
+from app.core.dependencies import get_supabase, get_current_user
 from app.schemas.chat import ChatRequest, ChatResponse, ConversationResponse
 from app.agents.master_agent import master_agent
 from typing import List
 from uuid import UUID
-import json
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -17,27 +15,38 @@ router = APIRouter(prefix="/chat", tags=["Chat"])
 @router.post("/", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
-    user_id: UUID = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
     """Send message and get AI response"""
-    chat_service = ChatService(db)
     
     # Get or create conversation
     if request.conversation_id:
-        conversation = await chat_service.get_conversation(request.conversation_id, user_id)
+        conversation = supabase.table("conversations")\
+            .select("*")\
+            .eq("id", str(request.conversation_id))\
+            .eq("user_id", str(current_user.id))\
+            .single()\
+            .execute()
+        
+        if not conversation.data:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
         conversation_id = request.conversation_id
     else:
-        conversation = await chat_service.create_conversation(user_id)
-        conversation_id = conversation.id
+        # Create new conversation
+        new_conv = supabase.table("conversations").insert({
+            "user_id": str(current_user.id),
+            "title": request.message[:50]  # Use first 50 chars as title
+       }).execute()
+        conversation_id = new_conv.data[0]["id"]
     
     # Add user message
-    await chat_service.add_message(
-        conversation_id=conversation_id,
-        user_id=user_id,
-        role="user",
-        content=request.message
-    )
+    supabase.table("messages").insert({
+        "conversation_id": str(conversation_id),
+        "role": "user",
+        "content": request.message
+    }).execute()
     
     # Run AI agent
     response_stream = master_agent.run(request.message, stream=False)
@@ -50,18 +59,17 @@ async def chat(
     charts = None
     
     # Add assistant message
-    await chat_service.add_message(
-        conversation_id=conversation_id,
-        user_id=user_id,
-        role="assistant",
-        content=answer_text,
-        stocks=stocks,
-        news=news,
-        charts=charts
-    )
+    supabase.table("messages").insert({
+        "conversation_id": str(conversation_id),
+        "role": "assistant",
+        "content": answer_text,
+        "stocks": stocks,
+        "news": news,
+        "charts": charts
+    }).execute()
     
     return ChatResponse(
-        conversation_id=conversation_id,
+        conversation_id=UUID(conversation_id),
         answer=answer_text,
         stocks=stocks,
         news=news,
@@ -71,31 +79,51 @@ async def chat(
 
 @router.get("/conversations", response_model=List[ConversationResponse])
 async def get_conversations(
-    user_id: UUID = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
     """Get user's conversation history"""
-    chat_service = ChatService(db)
-    return await chat_service.get_user_conversations(user_id)
+    response = supabase.table("conversations")\
+        .select("*, messages(*)")\
+        .eq("user_id", str(current_user.id))\
+        .order("created_at", desc=True)\
+        .execute()
+    
+    return response.data
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationResponse)
 async def get_conversation(
     conversation_id: UUID,
-    user_id: UUID = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
     """Get specific conversation with messages"""
-    chat_service = ChatService(db)
-    return await chat_service.get_conversation(conversation_id, user_id)
+    response = supabase.table("conversations")\
+        .select("*, messages(*)")\
+        .eq("id", str(conversation_id))\
+        .eq("user_id", str(current_user.id))\
+        .single()\
+        .execute()
+    
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    return response.data
 
 
 @router.delete("/conversations/{conversation_id}", status_code=204)
 async def delete_conversation(
     conversation_id: UUID,
-    user_id: UUID = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase)
 ):
     """Delete a conversation"""
-    chat_service = ChatService(db)
-    await chat_service.delete_conversation(conversation_id, user_id)
+    response = supabase.table("conversations")\
+        .delete()\
+        .eq("id", str(conversation_id))\
+        .eq("user_id", str(current_user.id))\
+        .execute()
+    
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Conversation not found")

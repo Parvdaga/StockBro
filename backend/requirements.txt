@@ -9,24 +9,8 @@ groq
 google-generativeai
 openai
 
-# Database
-sqlalchemy
-alembic
-asyncpg
-aiosqlite
-psycopg2-binary
-
-# Supabase
+# Supabase (Database & Auth)
 supabase
-
-# Authentication & Security
-python-jose[cryptography]
-passlib[bcrypt]
-python-multipart
-
-# Caching
-redis
-hiredis
 
 # Data processing
 pandas
@@ -37,8 +21,6 @@ plotly
 growwapi
 pycountry
 duckduckgo-search
-newsapi-python
-finnhub-python
 requests
 
 # Validation
