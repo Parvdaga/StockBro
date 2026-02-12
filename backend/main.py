@@ -9,12 +9,12 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle events"""
     # Startup
-    print(f"🚀 Starting {settings.PROJECT_NAME} v{settings.VERSION}")
-    print(f"📊 Database (Supabase): {settings.SUPABASE_URL}")
-    print(f"🤖 LLM: {'Groq' if settings.GROQ_API_KEY else 'Gemini' if settings.GOOGLE_API_KEY else 'None'}")
+    print(f"[START] Starting {settings.PROJECT_NAME} v{settings.VERSION}")
+    print(f"[DB] Database (Supabase): {settings.SUPABASE_URL}")
+    print(f"[LLM] Model: {'Groq' if settings.GROQ_API_KEY else 'Gemini' if settings.GOOGLE_API_KEY else 'None'}")
     yield
     # Shutdown
-    print("👋 Shutting down...")
+    print("[STOP] Shutting down...")
 
 
 app = FastAPI(
