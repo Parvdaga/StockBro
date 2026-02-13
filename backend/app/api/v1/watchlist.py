@@ -1,6 +1,7 @@
 """
 Watchlist endpoints - Supabase version
 """
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import Client
 from app.core.dependencies import get_supabase, get_current_user
@@ -29,7 +30,9 @@ async def create_watchlist(
         "name": request.name,
         "description": request.description
     }
-    response = supabase.table("watchlists").insert(data).execute()
+    response = await asyncio.to_thread(supabase.table("watchlists").insert(data).execute)
+    if not response.data:
+        raise HTTPException(status_code=500, detail="Failed to create watchlist")
     return response.data[0]
 
 
@@ -39,10 +42,12 @@ async def get_watchlists(
     supabase: Client = Depends(get_supabase)
 ):
     """Get all user watchlists with items"""
-    response = supabase.table("watchlists")\
-        .select("*, watchlist_items(*)")\
-        .eq("user_id", str(current_user.id))\
-        .execute()
+    response = await asyncio.to_thread(
+        supabase.table("watchlists")
+        .select("*, watchlist_items(*)")
+        .eq("user_id", str(current_user.id))
+        .execute
+    )
     return response.data
 
 
@@ -53,12 +58,14 @@ async def get_watchlist(
     supabase: Client = Depends(get_supabase)
 ):
     """Get specific watchlist"""
-    response = supabase.table("watchlists")\
-        .select("*, watchlist_items(*)")\
-        .eq("id", str(watchlist_id))\
-        .eq("user_id", str(current_user.id))\
-        .single()\
-        .execute()
+    response = await asyncio.to_thread(
+        supabase.table("watchlists")
+        .select("*, watchlist_items(*)")
+        .eq("id", str(watchlist_id))
+        .eq("user_id", str(current_user.id))
+        .single()
+        .execute
+    )
     
     if not response.data:
         raise HTTPException(status_code=404, detail="Watchlist not found")
@@ -75,11 +82,13 @@ async def update_watchlist(
 ):
     """Update watchlist"""
     update_data = request.dict(exclude_unset=True)
-    response = supabase.table("watchlists")\
-        .update(update_data)\
-        .eq("id", str(watchlist_id))\
-        .eq("user_id", str(current_user.id))\
-        .execute()
+    response = await asyncio.to_thread(
+        supabase.table("watchlists")
+        .update(update_data)
+        .eq("id", str(watchlist_id))
+        .eq("user_id", str(current_user.id))
+        .execute
+    )
     
     if not response.data:
         raise HTTPException(status_code=404, detail="Watchlist not found")
@@ -94,11 +103,13 @@ async def delete_watchlist(
     supabase: Client = Depends(get_supabase)
 ):
     """Delete watchlist"""
-    response = supabase.table("watchlists")\
-        .delete()\
-        .eq("id", str(watchlist_id))\
-        .eq("user_id", str(current_user.id))\
-        .execute()
+    response = await asyncio.to_thread(
+        supabase.table("watchlists")
+        .delete()
+        .eq("id", str(watchlist_id))
+        .eq("user_id", str(current_user.id))
+        .execute
+    )
     
     if not response.data:
         raise HTTPException(status_code=404, detail="Watchlist not found")
@@ -113,12 +124,14 @@ async def add_stock_to_watchlist(
 ):
     """Add stock to watchlist"""
     # Verify watchlist belongs to user
-    watchlist = supabase.table("watchlists")\
-        .select("id")\
-        .eq("id", str(watchlist_id))\
-        .eq("user_id", str(current_user.id))\
-        .single()\
-        .execute()
+    watchlist = await asyncio.to_thread(
+        supabase.table("watchlists")
+        .select("id")
+        .eq("id", str(watchlist_id))
+        .eq("user_id", str(current_user.id))
+        .single()
+        .execute
+    )
     
     if not watchlist.data:
         raise HTTPException(status_code=404, detail="Watchlist not found")
@@ -130,7 +143,9 @@ async def add_stock_to_watchlist(
     }
     
     try:
-        response = supabase.table("watchlist_items").insert(data).execute()
+        response = await asyncio.to_thread(supabase.table("watchlist_items").insert(data).execute)
+        if not response.data:
+             raise HTTPException(status_code=500, detail="Failed to add item")
         return response.data[0]
     except Exception as e:
         if "unique" in str(e).lower():
@@ -147,21 +162,25 @@ async def remove_stock_from_watchlist(
 ):
     """Remove stock from watchlist"""
     # Verify watchlist belongs to user
-    watchlist = supabase.table("watchlists")\
-        .select("id")\
-        .eq("id", str(watchlist_id))\
-        .eq("user_id", str(current_user.id))\
-        .single()\
-        .execute()
+    watchlist = await asyncio.to_thread(
+        supabase.table("watchlists")
+        .select("id")
+        .eq("id", str(watchlist_id))
+        .eq("user_id", str(current_user.id))
+        .single()
+        .execute
+    )
     
     if not watchlist.data:
         raise HTTPException(status_code=404, detail="Watchlist not found")
     
-    response = supabase.table("watchlist_items")\
-        .delete()\
-        .eq("id", str(item_id))\
-        .eq("watchlist_id", str(watchlist_id))\
-        .execute()
+    response = await asyncio.to_thread(
+        supabase.table("watchlist_items")
+        .delete()
+        .eq("id", str(item_id))
+        .eq("watchlist_id", str(watchlist_id))
+        .execute
+    )
     
     if not response.data:
         raise HTTPException(status_code=404, detail="Item not found")

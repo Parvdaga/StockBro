@@ -2,6 +2,7 @@
 Chat endpoints — integrates Groww stock data, GNews news, and LLM via agents
 """
 import re
+import asyncio
 import traceback
 from fastapi import APIRouter, Depends, HTTPException
 from supabase import Client
@@ -74,11 +75,13 @@ async def chat(
         try:
             # Try to fetch existing conversation
             # Using .execute() instead of .single() to avoid exception if not found
-            conversation = supabase.table("conversations")\
-                .select("*")\
-                .eq("id", str(request.conversation_id))\
-                .eq("user_id", str(current_user.id))\
-                .execute()
+            conversation = await asyncio.to_thread(
+                supabase.table("conversations")
+                .select("*")
+                .eq("id", str(request.conversation_id))
+                .eq("user_id", str(current_user.id))
+                .execute
+            )
 
             if conversation.data:
                 conversation_id = str(request.conversation_id)
@@ -92,21 +95,25 @@ async def chat(
     # Create new conversation if ID wasn't provided OR wasn't found
     if not conversation_id:
         try:
-            new_conv = supabase.table("conversations").insert({
-                "user_id": str(current_user.id),
-                "title": request.message[:50]
-            }).execute()
+            new_conv = await asyncio.to_thread(
+                supabase.table("conversations").insert({
+                    "user_id": str(current_user.id),
+                    "title": request.message[:50]
+                }).execute
+            )
             conversation_id = new_conv.data[0]["id"]
         except Exception as e:
             print(f"Error creating conversation: {e}")
             raise HTTPException(status_code=500, detail=f"Error creating conversation: {str(e)}")
 
     # Save user message
-    supabase.table("messages").insert({
-        "conversation_id": conversation_id,
-        "role": "user",
-        "content": request.message
-    }).execute()
+    await asyncio.to_thread(
+        supabase.table("messages").insert({
+            "conversation_id": conversation_id,
+            "role": "user",
+            "content": request.message
+        }).execute
+    )
 
     # ── Run AI Agent (LLM + Groww + GNews via tool calls) ──
     try:
@@ -153,14 +160,16 @@ async def chat(
         print(f"Error fetching news: {e}")
 
     # Save assistant message with structured data
-    supabase.table("messages").insert({
-        "conversation_id": conversation_id,
-        "role": "assistant",
-        "content": answer_text,
-        "stocks": stocks_data if stocks_data else None,
-        "news": news_data if news_data else None,
-        "charts": None
-    }).execute()
+    await asyncio.to_thread(
+        supabase.table("messages").insert({
+            "conversation_id": conversation_id,
+            "role": "assistant",
+            "content": answer_text,
+            "stocks": stocks_data if stocks_data else None,
+            "news": news_data if news_data else None,
+            "charts": None
+        }).execute
+    )
 
     return ChatResponse(
         conversation_id=UUID(conversation_id),
@@ -177,11 +186,13 @@ async def get_conversations(
     supabase: Client = Depends(get_supabase)
 ):
     """Get user's conversation history"""
-    response = supabase.table("conversations")\
-        .select("*, messages(*)")\
-        .eq("user_id", str(current_user.id))\
-        .order("created_at", desc=True)\
-        .execute()
+    response = await asyncio.to_thread(
+        supabase.table("conversations")
+        .select("*, messages(*)")
+        .eq("user_id", str(current_user.id))
+        .order("created_at", desc=True)
+        .execute
+    )
 
     return response.data
 
@@ -193,12 +204,14 @@ async def get_conversation(
     supabase: Client = Depends(get_supabase)
 ):
     """Get specific conversation with messages"""
-    response = supabase.table("conversations")\
-        .select("*, messages(*)")\
-        .eq("id", str(conversation_id))\
-        .eq("user_id", str(current_user.id))\
-        .single()\
-        .execute()
+    response = await asyncio.to_thread(
+        supabase.table("conversations")
+        .select("*, messages(*)")
+        .eq("id", str(conversation_id))
+        .eq("user_id", str(current_user.id))
+        .single()
+        .execute
+    )
 
     if not response.data:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -213,11 +226,13 @@ async def delete_conversation(
     supabase: Client = Depends(get_supabase)
 ):
     """Delete a conversation"""
-    response = supabase.table("conversations")\
-        .delete()\
-        .eq("id", str(conversation_id))\
-        .eq("user_id", str(current_user.id))\
-        .execute()
+    response = await asyncio.to_thread(
+        supabase.table("conversations")
+        .delete()
+        .eq("id", str(conversation_id))
+        .eq("user_id", str(current_user.id))
+        .execute
+    )
 
     if not response.data:
         raise HTTPException(status_code=404, detail="Conversation not found")

@@ -2,7 +2,7 @@
 Chat conversation schemas
 """
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Any
 from uuid import UUID
 from datetime import datetime
 from app.schemas.stock import StockData
@@ -38,9 +38,9 @@ class MessageResponse(BaseModel):
     id: UUID
     role: str  # "user" or "assistant"
     content: str
-    stocks: Optional[List[dict]] = None
-    news: Optional[List[dict]] = None
-    charts: Optional[dict] = None
+    stocks: Optional[Any] = None
+    news: Optional[Any] = None
+    charts: Optional[Any] = None
     created_at: datetime
     
     class Config:

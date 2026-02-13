@@ -1,0 +1,43 @@
+Error code: 400 - {'error': {'message': 'tool call validation failed: attempted to call tool \'transfer_task_to_finance_agent={"task_description": "Get the current stock price of KOTAKBANK", "expected_output": "Current stock price of KOTAKBANK", "additional_information": "Provide the current market price of KOTAKBANK stock"}\' which was not in request.tools', 'type': 'invalid_request_error', 'code': 'tool_use_failed', 'failed_generation': 'To provide a comprehensive response, I will need to re-assign the tasks with the required additional information.\n\n<function=transfer_task_to_finance_agent={"task_description": "Get the current stock price of KOTAKBANK", "expected_output": "Current stock price of KOTAKBANK", "additional_information": "Provide the current market price of KOTAKBANK stock"}></function>\n'}}
+Traceback (most recent call last):
+  File "C:\Users\parvd\OneDrive\Desktop\Capstone\StockBro\backend\reproduce_chat.py", line 17, in main
+    response = master_agent.run("Should I buy KOTAK BANK stocks for long term?", stream=False)
+  File "C:\Users\parvd\AppData\Roaming\Python\Python314\site-packages\phi\agent\agent.py", line 2074, in run
+    return next(resp)
+  File "C:\Users\parvd\AppData\Roaming\Python\Python314\site-packages\phi\agent\agent.py", line 1841, in _run
+    model_response = self.model.response(messages=messages_for_model)
+  File "C:\Users\parvd\AppData\Roaming\Python\Python314\site-packages\phi\model\groq\groq.py", line 543, in response
+    return self.handle_post_tool_call_messages(messages=messages, model_response=model_response)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\parvd\AppData\Roaming\Python\Python314\site-packages\phi\model\base.py", line 316, in handle_post_tool_call_messages
+    response_after_tool_calls = self.response(messages=messages)
+  File "C:\Users\parvd\AppData\Roaming\Python\Python314\site-packages\phi\model\groq\groq.py", line 508, in response
+    response: ChatCompletion = self.invoke(messages=messages)
+                               ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\parvd\AppData\Roaming\Python\Python314\site-packages\phi\model\groq\groq.py", line 282, in invoke
+    return self.get_client().chat.completions.create(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        model=self.id,
+        ^^^^^^^^^^^^^^
+        messages=[self.format_message(m) for m in messages],  # type: ignore
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        **self.request_kwargs,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\parvd\AppData\Roaming\Python\Python314\site-packages\groq\resources\chat\completions.py", line 461, in create
+    return self._post(
+           ~~~~~~~~~~^
+        "/openai/v1/chat/completions",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<45 lines>...
+        stream_cls=Stream[ChatCompletionChunk],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\parvd\AppData\Roaming\Python\Python314\site-packages\groq\_base_client.py", line 1242, in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\parvd\AppData\Roaming\Python\Python314\site-packages\groq\_base_client.py", line 1044, in request
+    raise self._make_status_error_from_response(err.response) from None
+groq.BadRequestError: Error code: 400 - {'error': {'message': 'tool call validation failed: attempted to call tool \'transfer_task_to_finance_agent={"task_description": "Get the current stock price of KOTAKBANK", "expected_output": "Current stock price of KOTAKBANK", "additional_information": "Provide the current market price of KOTAKBANK stock"}\' which was not in request.tools', 'type': 'invalid_request_error', 'code': 'tool_use_failed', 'failed_generation': 'To provide a comprehensive response, I will need to re-assign the tasks with the required additional information.\n\n<function=transfer_task_to_finance_agent={"task_description": "Get the current stock price of KOTAKBANK", "expected_output": "Current stock price of KOTAKBANK", "additional_information": "Provide the current market price of KOTAKBANK stock"}></function>\n'}}
