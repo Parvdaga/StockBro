@@ -10,32 +10,55 @@ from functools import wraps
 
 
 class TTLCache:
-    """Simple in-memory cache with per-key TTL and max size eviction."""
+    """Simple in-memory cache with per-key TTL, max size eviction, and stale-while-revalidate."""
 
-    def __init__(self, max_size: int = 200, default_ttl: int = 300):
+    def __init__(self, max_size: int = 200, default_ttl: int = 300, stale_window: int = 0):
         """
         Args:
             max_size: Maximum number of items in cache (oldest evicted first)
             default_ttl: Default time-to-live in seconds
+            stale_window: Extra seconds after TTL where stale data is still returned
+                          (0 = disabled, data is simply expired)
         """
         self._cache: OrderedDict = OrderedDict()
         self._expiry: dict[str, float] = {}
         self._max_size = max_size
         self._default_ttl = default_ttl
+        self._stale_window = stale_window
         self._lock = asyncio.Lock()
 
-    def get(self, key: str) -> Optional[Any]:
-        """Get a value from cache. Returns None if missing or expired."""
+    def get(self, key: str, allow_stale: bool = False) -> Optional[Any]:
+        """
+        Get a value from cache. Returns None if missing or expired.
+
+        Args:
+            allow_stale: If True and stale_window is set, return expired-but-stale data.
+                         The returned dict will have '_stale': True added if it's a dict.
+        """
         if key not in self._cache:
             return None
-        if time.time() > self._expiry.get(key, 0):
-            # Expired — remove
-            self._cache.pop(key, None)
-            self._expiry.pop(key, None)
-            return None
-        # Move to end (most recently used)
-        self._cache.move_to_end(key)
-        return self._cache[key]
+
+        now = time.time()
+        expiry_time = self._expiry.get(key, 0)
+
+        if now <= expiry_time:
+            # Fresh — move to end (most recently used) and return
+            self._cache.move_to_end(key)
+            return self._cache[key]
+
+        # Data is expired — check stale window
+        if allow_stale and self._stale_window > 0 and now <= (expiry_time + self._stale_window):
+            # Stale but usable — return with marker
+            value = self._cache[key]
+            if isinstance(value, dict):
+                stale_copy = {**value, "_stale": True}
+                return stale_copy
+            return value
+
+        # Fully expired — remove
+        self._cache.pop(key, None)
+        self._expiry.pop(key, None)
+        return None
 
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         """Store a value with TTL."""

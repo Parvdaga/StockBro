@@ -6,7 +6,7 @@ Features: TTL caching, connection pooling, exponential backoff retry.
 import httpx
 import asyncio
 import time
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 
 try:
     import yfinance as yf
@@ -16,9 +16,10 @@ except ImportError:
     print("⚠️  yfinance not installed — historical chart data disabled")
 
 from app.schemas.stock import StockData
-from app.config import settings
+from app.core.config import settings
 from app.integrations.cache import TTLCache
 from app.integrations.retry import async_retry
+from app.integrations.rate_limiter import get_limiter
 
 # Try to import the SDK for instrument lookups
 try:
@@ -51,12 +52,58 @@ DURATION_MAP_YF = {
 }
 
 # Module-level caches
-_price_cache = TTLCache(max_size=200, default_ttl=30)      # 30s for live prices
+_price_cache = TTLCache(max_size=200, default_ttl=30, stale_window=60)   # 30s TTL + 60s stale
 _history_cache = TTLCache(max_size=50, default_ttl=300)     # 5min for historical
 _search_cache = TTLCache(max_size=50, default_ttl=600)      # 10min for search
 
+# Rate limiter for Groww API
+_rate_limiter = get_limiter("groww")
+
 # Shared httpx client (connection pooling)
 _http_client: Optional[httpx.AsyncClient] = None
+
+
+class RequestCoalescer:
+    """Coalesce concurrent requests for the same resource into a single upstream call."""
+
+    def __init__(self):
+        self._pending: Dict[str, asyncio.Future] = {}
+        self._lock = asyncio.Lock()
+
+    async def coalesce(self, key: str, fetch_fn):
+        """
+        If multiple concurrent calls request the same key, only one fetch happens.
+
+        Args:
+            key: Unique cache key for the request
+            fetch_fn: Async callable that performs the actual fetch
+
+        Returns:
+            Result from fetch_fn (shared across all concurrent callers for this key)
+        """
+        async with self._lock:
+            if key in self._pending:
+                # Another request is already fetching this — wait for it
+                return await self._pending[key]
+
+            # Create a new future for this fetch
+            future = asyncio.Future()
+            self._pending[key] = future
+
+        try:
+            result = await fetch_fn()
+            future.set_result(result)
+            return result
+        except Exception as e:
+            future.set_exception(e)
+            raise
+        finally:
+            async with self._lock:
+                self._pending.pop(key, None)
+
+
+# Module-level coalescer
+_coalescer = RequestCoalescer()
 
 
 def _get_http_client() -> httpx.AsyncClient:
@@ -103,7 +150,7 @@ class GrowwClient:
     @async_retry(max_retries=2, base_delay=0.5)
     async def get_live_price(self, trading_symbol: str, exchange: str = "NSE") -> Optional[Dict]:
         """
-        Get live price data from Groww web API (cached for 30s).
+        Get live price data from Groww web API (cached for 30s, coalesced).
         Returns dict with: ltp, open, high, low, close, volume, dayChange, dayChangePerc, etc.
         """
         cache_key = f"price:{exchange}:{trading_symbol}"
@@ -111,22 +158,34 @@ class GrowwClient:
         if cached is not None:
             return cached
 
-        url = f"{GROWW_WEB_API}/accord_points/exchange/{exchange}/segment/CASH/latest_prices_ohlc/{trading_symbol}"
-        try:
-            client = _get_http_client()
-            response = await client.get(url)
-            if response.status_code == 200:
-                data = response.json()
-                _price_cache.set(cache_key, data)
-                return data
-            else:
-                print(f"Groww web API error for {trading_symbol}: HTTP {response.status_code}")
+        # Coalesce concurrent requests — only 1 upstream call per symbol
+        async def _fetch():
+            # Check rate limit; if exhausted, try stale data
+            if not await _rate_limiter.acquire():
+                stale = _price_cache.get(cache_key, allow_stale=True)
+                if stale:
+                    print(f"[GROWW] Rate-limited, serving stale data for {trading_symbol}")
+                    return stale
                 return None
-        except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError):
-            raise  # Let retry handle
-        except Exception as e:
-            print(f"Groww web API error for {trading_symbol}: {e}")
-            return None
+
+            url = f"{GROWW_WEB_API}/accord_points/exchange/{exchange}/segment/CASH/latest_prices_ohlc/{trading_symbol}"
+            try:
+                client = _get_http_client()
+                response = await client.get(url)
+                if response.status_code == 200:
+                    data = response.json()
+                    _price_cache.set(cache_key, data)
+                    return data
+                else:
+                    print(f"Groww web API error for {trading_symbol}: HTTP {response.status_code}")
+                    return None
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError):
+                raise  # Let retry handle
+            except Exception as e:
+                print(f"Groww web API error for {trading_symbol}: {e}")
+                return None
+
+        return await _coalescer.coalesce(cache_key, _fetch)
 
     # ──────────────────────────────────────────────
     # Historical OHLCV data for charts (via yfinance)
@@ -299,6 +358,14 @@ class GrowwClient:
 
         # Fallback: Groww web search API
         try:
+            # Check rate limit before search API call
+            if not await _rate_limiter.acquire():
+                stale = _search_cache.get(cache_key, allow_stale=True)
+                if stale:
+                    print(f"[GROWW] Rate-limited, serving stale search for '{query}'")
+                    return stale[:max_results]
+                return []
+
             params = {"q": query, "size": max_results, "page": 0}
             client = _get_http_client()
             response = await client.get(GROWW_SEARCH_API, params=params)
@@ -308,11 +375,24 @@ class GrowwClient:
                 content = data.get("data", {}).get("content", []) or data.get("content", [])
                 for item in content:
                     entity = item.get("entity_data", item)
+                    # Extract trading symbol (NOT scrip code which might be numeric ID)
+                    nse_symbol = entity.get("nse_scrip_code") or entity.get("search_id", "").split("/")[-1].upper()
+                    bse_symbol = entity.get("bse_scrip_code")
+                    trading_symbol = nse_symbol or bse_symbol or ""
+
+                    # Validate it looks like a symbol (letters, not numeric ID)
+                    if trading_symbol and not trading_symbol.replace("-", "").isalpha():
+                        # Fallback: extract from search_id like "stocks/reliance-industries-ltd"
+                        if "search_id" in entity:
+                            parts = entity["search_id"].split("/")
+                            if len(parts) > 1:
+                                trading_symbol = parts[-1].replace("-", "").upper()[:20]  # Truncate long names
+
                     results.append({
-                        "symbol": entity.get("nse_scrip_code") or entity.get("bse_scrip_code") or "",
+                        "symbol": trading_symbol,
                         "name": entity.get("company_name") or entity.get("title") or "",
                         "exchange": "NSE",
-                        "groww_symbol": f"NSE-{entity.get('nse_scrip_code', '')}",
+                        "groww_symbol": f"NSE-{trading_symbol}",
                     })
                 if results:
                     _search_cache.set(cache_key, results)

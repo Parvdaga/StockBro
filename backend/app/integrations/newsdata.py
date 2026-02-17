@@ -7,32 +7,19 @@ import time
 import httpx
 from typing import List, Dict, Optional
 
-from app.config import settings
+from app.core.config import settings
 from app.integrations.cache import TTLCache
 from app.integrations.retry import async_retry
+from app.integrations.rate_limiter import get_limiter
 
 # Base URL for NewsData.io v1
 NEWSDATA_BASE_URL = "https://newsdata.io/api/1/latest"
 
-# Module-level caches
-_news_cache = TTLCache(max_size=100, default_ttl=600)  # 10 min TTL
+# Module-level caches (stale_window allows serving stale data when rate-limited)
+_news_cache = TTLCache(max_size=100, default_ttl=600, stale_window=300)  # 10min TTL + 5min stale
 
-# Rate limiter state (NewsData.io free plan ≈ 200 req/day → ~1 req / 7s)
-_rate_limit_lock = asyncio.Lock()
-_last_call_time: float = 0.0
-_RATE_LIMIT_INTERVAL: float = 7.0  # seconds between API calls
-
-
-async def _enforce_rate_limit():
-    """Wait if needed to stay within NewsData.io rate limits."""
-    global _last_call_time
-    async with _rate_limit_lock:
-        now = time.time()
-        elapsed = now - _last_call_time
-        if elapsed < _RATE_LIMIT_INTERVAL:
-            wait = _RATE_LIMIT_INTERVAL - elapsed
-            await asyncio.sleep(wait)
-        _last_call_time = time.time()
+# Rate limiter (NewsData.io free plan: 180 req/day, 30 req/hour)
+_rate_limiter = get_limiter("newsdata")
 
 
 class NewsDataClient:
@@ -73,8 +60,13 @@ class NewsDataClient:
         if cached is not None:
             return cached[:max_results]
 
-        # Rate limit
-        await _enforce_rate_limit()
+        # Rate limit — serve stale data if budget exhausted
+        if not await _rate_limiter.acquire():
+            stale = _news_cache.get(cache_key, allow_stale=True)
+            if stale:
+                print(f"[NewsData] Rate-limited, serving stale news for '{query}'")
+                return stale[:max_results]
+            return []
 
         params = {
             "apikey": self.api_key,
@@ -121,8 +113,13 @@ class NewsDataClient:
         if cached is not None:
             return cached[:max_results]
 
-        # Rate limit
-        await _enforce_rate_limit()
+        # Rate limit — serve stale data if budget exhausted
+        if not await _rate_limiter.acquire():
+            stale = _news_cache.get(cache_key, allow_stale=True)
+            if stale:
+                print(f"[NewsData] Rate-limited, serving stale headlines for '{category}'")
+                return stale[:max_results]
+            return []
 
         params = {
             "apikey": self.api_key,

@@ -32,7 +32,7 @@ class TestNewsDataClient:
             result = asyncio.run(c.search_news("test"))
             assert result == []
 
-    @patch("app.integrations.newsdata._enforce_rate_limit", new_callable=AsyncMock)
+    @patch("app.integrations.newsdata._rate_limiter.acquire", new_callable=AsyncMock, return_value=True)
     def test_search_news_success(self, mock_rate_limit, client):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -65,7 +65,7 @@ class TestNewsDataClient:
         assert result[0]["title"] == "Reliance Q3 Results"
         assert result[0]["source"] == "moneycontrol"
 
-    @patch("app.integrations.newsdata._enforce_rate_limit", new_callable=AsyncMock)
+    @patch("app.integrations.newsdata._rate_limiter.acquire", new_callable=AsyncMock, return_value=True)
     def test_search_news_http_error(self, mock_rate_limit, client):
         mock_response = MagicMock()
         mock_response.status_code = 500

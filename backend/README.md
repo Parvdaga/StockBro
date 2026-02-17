@@ -1,116 +1,72 @@
-# StockBro Backend
+# StockBro Backend ⚙️
 
-> 🚀 **AI-Powered Stock Analysis Platform**
+The backend is the core engine of StockBro, built with **FastAPI**. It handles:
+- **API Endpoints**: Chat, Stocks, News, Watchlists.
+- **AI Agents**: Orchestrates LLMs (Groq/Gemini) with Phidata.
+- **Data Fetching**: Integrates with Groww (Stocks) and NewsData.io (News).
+- **Database**: Manages user data and watchlists in Supabase.
 
-Welcome to the StockBro backend! this is the engine behind the StockBro app, handling stock data, news, and AI chat.
-
----
-
-## ⚡ Quick Start (For Beginners)
-
-We've made it super easy to get started.
-
-1.  **Install Python**: Ensure you have [Python 3.10+](https://www.python.org/downloads/) installed.
-    *   *Important:* Check "Add Python to PATH" during installation.
-
-2.  **Environment Setup**:
-    *   Copy the file `.env.example` and rename it to `.env`.
-    *   Open `.env` in Notepad and add your API keys (Groq, Supabase, Groww).
-
-3.  **Run the App**:
-    *   Double-click `run.bat`.
-    *   This will automatically set up the environment and start the server!
-
-The server will start at: `http://localhost:8000`
-API Documentation: `http://localhost:8000/api/v1/docs`
-
----
-
-## 🛠️ Detailed Setup (Manual)
-
-If you prefer using the terminal or are on Mac/Linux, follow these steps.
+## 🚀 Setup & Run
 
 ### 1. Prerequisites
-- Python 3.10 or higher
-- Git (optional)
+- Python 3.10+
+- API Keys (Groq, Supabase, etc. - see below).
 
 ### 2. Installation
 
-Open your terminal in the `backend` folder:
+Navigate to the `backend` directory:
 
 ```bash
-# 1. Create a virtual environment
+cd backend
 python -m venv venv
+# Activate venv:
+# Windows: venv\Scripts\activate
+# Mac/Linux: source venv/bin/activate
 
-# 2. Activate the virtual environment
-# Windows:
-venv\Scripts\activate
-# Mac/Linux:
-source venv/bin/activate
-
-# 3. Install dependencies
 pip install -r requirements.txt
 ```
 
 ### 3. Configuration
 
-1.  Duplicate `.env.example` and name it `.env`.
-2.  Fill in the required fields:
-
-```ini
-GROQ_API_KEY=gsk_...
-SUPABASE_URL=https://...
-SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-GROWW_API_KEY=...
-```
-
-### 4. Running the Server
-
-With your virtual environment activated:
+Duplicate `.env.example` to `.env` and fill in your keys:
 
 ```bash
-uvicorn main:app --reload
+cp .env.example .env
 ```
 
----
+| Variable | Description |
+|----------|-------------|
+| `GROQ_API_KEY` | For the primary LLM (Llama 3). |
+| `SUPABASE_URL` | Database URL. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Admin key for backend operations. |
+| `GROWW_API_KEY` | Optional (if using Groww SDK). |
+| `NEWSDATA_API_KEY` | For fetching news. |
 
-## 🧪 Testing & Usage
+### 4. Run the Server
 
-### Interactive API Docs (Swagger UI)
-The easiest way to test is via the web interface:
-1.  Go to `http://localhost:8000/api/v1/docs`.
-2.  **Authorize**: Click the lock icon 🔓.
-    *   You'll need an access token.
-    *   Run `python scripts/create_test_user.py` to make a user.
-    *   Run `python scripts/get_access_token.py` to get a token.
-    *   Enter `Bearer <your_token>` in the box.
-3.  **Try Endpoints**: Click "Try it out" on any endpoint (e.g., `/api/v1/chat/`).
+From the `backend/` directory:
 
-### Common Commands
+```bash
+uvicorn app.main:app --reload
+```
 
-| Task | Command |
-| :--- | :--- |
-| **Start Server** | `uvicorn main:app --reload` |
-| **Create User** | `python scripts/create_test_user.py` |
-| **Get Token** | `python scripts/get_access_token.py` |
-| **Run Tests** | `pytest` |
+- **API Docs**: `http://localhost:8000/api/v1/docs`
+- **Health Check**: `http://localhost:8000/health`
 
----
+## 🧪 Testing
 
-## 📂 Project Structure
+We have a verification script to check if the backend is healthy:
 
-*   `app/`: Main application code.
-    *   `api/`: API route handlers.
-    *   `agents/`: AI logic (Finance Agent, News Agent).
-    *   `integrations/`: External APIs (Groww, GNews).
-*   `scripts/`: Helper scripts for testing and setup.
-*   `tests/`: Automated tests.
+```bash
+python scripts/verify_backend.py
+```
 
----
+This will run a series of tests against the running server.
 
-## 🆘 Troubleshooting
+## 📁 Structure
 
-*   **"Python not found"**: Reinstall Python and add to PATH.
-*   **"ModuleNotFoundError"**: Run `pip install -r requirements.txt` again (make sure venv is active!).
-*   **"Port already in use"**: Another instance is running. Close it or use a different port.
+- `app/main.py`: Application entry point.
+- `app/api/`: API route handlers (Chat, Stocks, etc.).
+- `app/agents/`: AI capabilities.
+- `app/integrations/`: External API clients.
+- `app/core/`: Configuration and database connection.

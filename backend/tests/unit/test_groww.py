@@ -53,7 +53,8 @@ class TestParseSymbol:
 
 
 class TestGetLivePrice:
-    def test_success(self, client):
+    @patch("app.integrations.groww._rate_limiter.acquire", new_callable=AsyncMock, return_value=True)
+    def test_success(self, mock_rate_limit, client):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
@@ -81,7 +82,8 @@ class TestGetLivePrice:
         assert result["ltp"] == 2450.50
         assert result["volume"] == 5000000
 
-    def test_not_found(self, client):
+    @patch("app.integrations.groww._rate_limiter.acquire", new_callable=AsyncMock, return_value=True)
+    def test_not_found(self, mock_rate_limit, client):
         mock_response = MagicMock()
         mock_response.status_code = 404
 
@@ -99,25 +101,33 @@ class TestGetLivePrice:
 
 
 class TestGetHistoricalData:
-    def test_success_with_array_candles(self, client):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "candles": [
-                [1700000000, 2400.0, 2450.0, 2380.0, 2430.0, 3000000],
-                [1700086400, 2430.0, 2470.0, 2420.0, 2460.0, 2800000],
-            ]
+    def test_success_with_yfinance(self, client):
+        # Mock pandas DataFrame returned by yfinance
+        mock_df = MagicMock()
+        mock_df.empty = False
+        
+        # Create timestamps and rows
+        import pandas as pd
+        from datetime import datetime
+        
+        dates = pd.to_datetime([1700000000, 1700086400], unit='s')
+        data = {
+            "Open": [2400.0, 2430.0],
+            "High": [2450.0, 2470.0],
+            "Low": [2380.0, 2420.0],
+            "Close": [2430.0, 2460.0],
+            "Volume": [3000000, 2800000]
         }
+        mock_df = pd.DataFrame(data, index=dates)
 
-        async def mock_get(url, params=None, **kwargs):
-            return mock_response
-
-        with patch("app.integrations.groww._get_http_client") as mock_get_client:
-            mock_client = AsyncMock()
-            mock_client.get = mock_get
-            mock_get_client.return_value = mock_client
-
-            result = asyncio.run(client.get_historical_data("RELIANCE", duration="1M"))
+        with patch("app.integrations.groww.yf.Ticker") as MockTicker:
+            mock_ticker_instance = MagicMock()
+            mock_ticker_instance.history.return_value = mock_df
+            MockTicker.return_value = mock_ticker_instance
+            
+            # We need to ensure _YFINANCE_AVAILABLE is True for the test
+            with patch("app.integrations.groww._YFINANCE_AVAILABLE", True):
+                result = asyncio.run(client.get_historical_data("RELIANCE", duration="1M"))
 
         assert result is not None
         assert len(result) == 2
@@ -125,18 +135,14 @@ class TestGetHistoricalData:
         assert result[0]["volume"] == 3000000
 
     def test_api_failure(self, client):
-        mock_response = MagicMock()
-        mock_response.status_code = 500
-
-        async def mock_get(url, params=None, **kwargs):
-            return mock_response
-
-        with patch("app.integrations.groww._get_http_client") as mock_get_client:
-            mock_client = AsyncMock()
-            mock_client.get = mock_get
-            mock_get_client.return_value = mock_client
-
-            result = asyncio.run(client.get_historical_data("RELIANCE", duration="1M"))
+        with patch("app.integrations.groww.yf.Ticker") as MockTicker:
+            mock_ticker_instance = MagicMock()
+            # Simulate failure by returning empty or raising exception
+            mock_ticker_instance.history.side_effect = Exception("YFinance error")
+            MockTicker.return_value = mock_ticker_instance
+            
+            with patch("app.integrations.groww._YFINANCE_AVAILABLE", True):
+                result = asyncio.run(client.get_historical_data("RELIANCE", duration="1M"))
 
         assert result is None
 

@@ -2,7 +2,7 @@
 News Agent — fetches Indian stock market news via NewsData.io API
 """
 from phi.agent import Agent
-from app.config import settings
+from app.core.config import settings
 from app.agents.shared_model import get_model
 from app.integrations.newsdata import NewsDataClient
 import asyncio
