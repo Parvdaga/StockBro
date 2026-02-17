@@ -47,3 +47,21 @@ class StockDetailResponse(BaseModel):
     current_price: float
     change_percent: Optional[float] = None
     fundamentals: StockData
+
+
+class ChartDataPoint(BaseModel):
+    """Single OHLCV candle for charts"""
+    timestamp: int  # Unix epoch (seconds or milliseconds)
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: Optional[int] = None
+
+
+class ChartDataResponse(BaseModel):
+    """Chart-ready historical data"""
+    symbol: str
+    duration: str
+    data: List[ChartDataPoint]
+

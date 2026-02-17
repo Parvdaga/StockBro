@@ -1,12 +1,24 @@
 """
-Groww API client for Indian stock market data
-Uses Groww web API for live prices + SDK for instrument metadata
+Groww API client for Indian stock market data.
+Uses Groww web API for live prices, historical OHLCV, and search.
+Features: TTL caching, connection pooling, exponential backoff retry.
 """
 import httpx
 import asyncio
+import time
 from typing import Optional, List, Dict
+
+try:
+    import yfinance as yf
+    _YFINANCE_AVAILABLE = True
+except ImportError:
+    _YFINANCE_AVAILABLE = False
+    print("⚠️  yfinance not installed — historical chart data disabled")
+
 from app.schemas.stock import StockData
 from app.config import settings
+from app.integrations.cache import TTLCache
+from app.integrations.retry import async_retry
 
 # Try to import the SDK for instrument lookups
 try:
@@ -17,19 +29,46 @@ except ImportError:
     print("⚠️  growwapi SDK not installed — instrument search disabled")
 
 
-# Groww web API base URL (free, no auth needed)
+# Groww web API base URLs (free, no auth needed)
 GROWW_WEB_API = "https://groww.in/v1/api/stocks_data/v1"
 GROWW_SEARCH_API = "https://groww.in/v1/api/search/v3/query/globalSuggestion/exchange/NSE_EQ"
-GROWW_COMPANY_API = "https://groww.in/v1/api/stocks_data/v1/company/search/groww_contract"
+GROWW_CHARTING_API = "https://groww.in/v1/api/charting_service/v2/chart/exchange"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Accept": "application/json",
 }
 
+# Duration presets → yfinance (period, interval)
+DURATION_MAP_YF = {
+    "1d": ("1d", "5m"),
+    "1w": ("5d", "15m"),
+    "1M": ("1mo", "1d"),
+    "3M": ("3mo", "1d"),
+    "6M": ("6mo", "1d"),
+    "1y": ("1y", "1wk"),
+    "5y": ("5y", "1mo"),
+}
+
+# Module-level caches
+_price_cache = TTLCache(max_size=200, default_ttl=30)      # 30s for live prices
+_history_cache = TTLCache(max_size=50, default_ttl=300)     # 5min for historical
+_search_cache = TTLCache(max_size=50, default_ttl=600)      # 10min for search
+
+# Shared httpx client (connection pooling)
+_http_client: Optional[httpx.AsyncClient] = None
+
+
+def _get_http_client() -> httpx.AsyncClient:
+    """Get or create the shared async HTTP client."""
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(timeout=10.0, headers=HEADERS)
+    return _http_client
+
 
 class GrowwClient:
-    """Client for Indian stock market data via Groww"""
+    """Client for Indian stock market data via Groww — with caching & retry."""
 
     _instruments_df = None  # Class-level cache for instruments
 
@@ -43,7 +82,7 @@ class GrowwClient:
                 print(f"[WARN] Groww SDK init failed: {e}")
 
     def _get_equity_instruments(self):
-        """Get cached NSE equity instruments DataFrame (loaded once)"""
+        """Get cached NSE equity instruments DataFrame (loaded once)."""
         if GrowwClient._instruments_df is None and self._sdk:
             try:
                 all_inst = self._sdk.get_all_instruments()
@@ -61,33 +100,145 @@ class GrowwClient:
     # ──────────────────────────────────────────────
     # Live price data via Groww web API
     # ──────────────────────────────────────────────
+    @async_retry(max_retries=2, base_delay=0.5)
     async def get_live_price(self, trading_symbol: str, exchange: str = "NSE") -> Optional[Dict]:
         """
-        Get live price data from Groww web API.
-        Returns dict with: ltp, open, high, low, close, volume, dayChange, dayChangePerc,
-                           yearHighPrice, yearLowPrice, etc.
+        Get live price data from Groww web API (cached for 30s).
+        Returns dict with: ltp, open, high, low, close, volume, dayChange, dayChangePerc, etc.
         """
+        cache_key = f"price:{exchange}:{trading_symbol}"
+        cached = _price_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         url = f"{GROWW_WEB_API}/accord_points/exchange/{exchange}/segment/CASH/latest_prices_ohlc/{trading_symbol}"
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(url, headers=HEADERS)
-                if response.status_code == 200:
-                    return response.json()
-                else:
-                    print(f"Groww web API error for {trading_symbol}: HTTP {response.status_code}")
-                    return None
+            client = _get_http_client()
+            response = await client.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                _price_cache.set(cache_key, data)
+                return data
+            else:
+                print(f"Groww web API error for {trading_symbol}: HTTP {response.status_code}")
+                return None
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError):
+            raise  # Let retry handle
         except Exception as e:
             print(f"Groww web API error for {trading_symbol}: {e}")
             return None
 
     # ──────────────────────────────────────────────
+    # Historical OHLCV data for charts (via yfinance)
+    # ──────────────────────────────────────────────
+    async def get_historical_data(
+        self,
+        trading_symbol: str,
+        exchange: str = "NSE",
+        duration: str = "3M",
+    ) -> Optional[List[Dict]]:
+        """
+        Get historical OHLCV candle data for charting (cached for 5min).
+        Uses yfinance with .NS (NSE) or .BO (BSE) suffix.
+
+        Args:
+            trading_symbol: NSE symbol (e.g. RELIANCE)
+            exchange: NSE or BSE
+            duration: One of 1d, 1w, 1M, 3M, 6M, 1y, 5y
+
+        Returns:
+            List of dicts with timestamp, open, high, low, close, volume
+        """
+        if not _YFINANCE_AVAILABLE:
+            print("[CHART] yfinance not installed")
+            return None
+
+        cache_key = f"history:{exchange}:{trading_symbol}:{duration}"
+        cached = _history_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        yf_period, yf_interval = DURATION_MAP_YF.get(duration, ("3mo", "1d"))
+        suffix = ".NS" if exchange == "NSE" else ".BO"
+        yf_symbol = f"{trading_symbol}{suffix}"
+
+        try:
+            loop = asyncio.get_event_loop()
+
+            def _fetch():
+                """Fetch with retry for transient yfinance errors."""
+                last_err = None
+                for attempt in range(3):
+                    try:
+                        ticker = yf.Ticker(yf_symbol)
+                        df = ticker.history(period=yf_period, interval=yf_interval)
+                        if df is not None and not df.empty:
+                            return df
+                    except Exception as e:
+                        last_err = e
+                        import time as _time
+                        _time.sleep(1)
+                if last_err:
+                    print(f"[CHART] yfinance {yf_symbol} failed after 3 tries: {last_err}")
+                return None
+
+            df = await loop.run_in_executor(None, _fetch)
+
+            if df is None or df.empty:
+                print(f"[CHART] No data from yfinance for {yf_symbol}")
+                return None
+
+            formatted = []
+            for idx, row in df.iterrows():
+                ts = int(idx.timestamp())
+                formatted.append({
+                    "timestamp": ts,
+                    "open": round(float(row["Open"]), 2),
+                    "high": round(float(row["High"]), 2),
+                    "low": round(float(row["Low"]), 2),
+                    "close": round(float(row["Close"]), 2),
+                    "volume": int(row["Volume"]) if row["Volume"] else None,
+                })
+
+            if formatted:
+                _history_cache.set(cache_key, formatted)
+            return formatted
+
+        except Exception as e:
+            print(f"[CHART] yfinance error for {yf_symbol}: {e}")
+            return None
+
+    @staticmethod
+    def _format_candles(candles: list) -> List[Dict]:
+        """Convert Groww candle array to chart-ready dicts."""
+        formatted = []
+        for c in candles:
+            # Groww candle format: [timestamp, open, high, low, close, volume]
+            if isinstance(c, (list, tuple)) and len(c) >= 5:
+                formatted.append({
+                    "timestamp": int(c[0]),
+                    "open": float(c[1]),
+                    "high": float(c[2]),
+                    "low": float(c[3]),
+                    "close": float(c[4]),
+                    "volume": int(c[5]) if len(c) > 5 else None,
+                })
+            elif isinstance(c, dict):
+                formatted.append({
+                    "timestamp": c.get("timestamp", c.get("t", 0)),
+                    "open": float(c.get("open", c.get("o", 0))),
+                    "high": float(c.get("high", c.get("h", 0))),
+                    "low": float(c.get("low", c.get("l", 0))),
+                    "close": float(c.get("close", c.get("c", 0))),
+                    "volume": c.get("volume", c.get("v")),
+                })
+        return formatted
+
+    # ──────────────────────────────────────────────
     # Instrument metadata via SDK
     # ──────────────────────────────────────────────
     def get_instrument_info(self, groww_symbol: str) -> Optional[Dict]:
-        """
-        Get instrument metadata from SDK.
-        groww_symbol format: NSE-RELIANCE, BSE-TCS
-        """
+        """Get instrument metadata from SDK."""
         if not self._sdk:
             return None
         try:
@@ -102,9 +253,8 @@ class GrowwClient:
     async def get_stock_data(self, symbol: str) -> Optional[StockData]:
         """
         Get complete stock data combining live prices + instrument metadata.
-        Accepts: 'RELIANCE', 'NSE-RELIANCE', 'BSE-RELIANCE', 'TCS', etc.
+        Accepts: 'RELIANCE', 'NSE-RELIANCE', 'BSE-RELIANCE', etc.
         """
-        # Parse symbol
         exchange, trading_symbol = self._parse_symbol(symbol)
 
         # Fetch live price (primary data source)
@@ -117,14 +267,13 @@ class GrowwClient:
         instrument = self.get_instrument_info(groww_symbol)
         company_name = (instrument or {}).get("name", trading_symbol)
 
-        # Build StockData
         return StockData(
             symbol=groww_symbol,
             name=company_name,
             current_price=float(live_data.get("ltp", 0)),
             change_percent=live_data.get("dayChangePerc"),
             volume=live_data.get("volume"),
-            market_cap=None,  # Not available from this endpoint
+            market_cap=None,
             pe_ratio=None,
             eps=None,
             dividend_yield=None,
@@ -136,41 +285,45 @@ class GrowwClient:
     # Search stocks
     # ──────────────────────────────────────────────
     async def search_stocks(self, query: str, max_results: int = 10) -> List[Dict]:
-        """
-        Search for Indian stocks by name or symbol.
-        Uses SDK instrument list (reliable) with web API as fallback.
-        """
-        # Primary: SDK-based search (always works)
+        """Search for Indian stocks by name or symbol (cached for 10min)."""
+        cache_key = f"search:{query.upper()}"
+        cached = _search_cache.get(cache_key)
+        if cached is not None:
+            return cached[:max_results]
+
+        # Primary: SDK-based search
         results = await self._search_instruments_sdk(query, max_results)
         if results:
+            _search_cache.set(cache_key, results)
             return results
 
         # Fallback: Groww web search API
         try:
-            url = GROWW_SEARCH_API
             params = {"q": query, "size": max_results, "page": 0}
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(url, params=params, headers=HEADERS)
-                if response.status_code == 200:
-                    data = response.json()
-                    results = []
-                    content = data.get("data", {}).get("content", []) or data.get("content", [])
-                    for item in content:
-                        entity = item.get("entity_data", item)
-                        results.append({
-                            "symbol": entity.get("nse_scrip_code") or entity.get("bse_scrip_code") or "",
-                            "name": entity.get("company_name") or entity.get("title") or "",
-                            "exchange": "NSE",
-                            "groww_symbol": f"NSE-{entity.get('nse_scrip_code', '')}",
-                        })
-                    return results
+            client = _get_http_client()
+            response = await client.get(GROWW_SEARCH_API, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                results = []
+                content = data.get("data", {}).get("content", []) or data.get("content", [])
+                for item in content:
+                    entity = item.get("entity_data", item)
+                    results.append({
+                        "symbol": entity.get("nse_scrip_code") or entity.get("bse_scrip_code") or "",
+                        "name": entity.get("company_name") or entity.get("title") or "",
+                        "exchange": "NSE",
+                        "groww_symbol": f"NSE-{entity.get('nse_scrip_code', '')}",
+                    })
+                if results:
+                    _search_cache.set(cache_key, results)
+                return results
         except Exception as e:
             print(f"Groww search error: {e}")
 
         return []
 
     async def _search_instruments_sdk(self, query: str, max_results: int = 10) -> List[Dict]:
-        """Search using cached SDK instrument list"""
+        """Search using cached SDK instrument list."""
         if not self._sdk:
             return []
         try:
@@ -205,7 +358,7 @@ class GrowwClient:
     # Trending / popular stocks
     # ──────────────────────────────────────────────
     async def get_trending_stocks(self) -> List[Dict]:
-        """Get trending/popular Indian stocks with live prices"""
+        """Get trending/popular Indian stocks with live prices."""
         popular_symbols = [
             "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
             "HINDUNILVR", "SBIN", "BHARTIARTL", "ITC", "KOTAKBANK",
@@ -223,7 +376,7 @@ class GrowwClient:
     # ──────────────────────────────────────────────
     @staticmethod
     def _parse_symbol(symbol: str) -> tuple:
-        """Parse symbol into (exchange, trading_symbol)"""
+        """Parse symbol into (exchange, trading_symbol)."""
         symbol = symbol.strip().upper()
         if "-" in symbol:
             parts = symbol.split("-", 1)

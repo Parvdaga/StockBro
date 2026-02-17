@@ -7,11 +7,11 @@ import traceback
 from fastapi import APIRouter, Depends, HTTPException
 from supabase import Client
 from app.core.dependencies import get_supabase, get_current_user
-from app.schemas.chat import ChatRequest, ChatResponse, ConversationResponse, NewsItem
+from app.schemas.chat import ChatRequest, ChatResponse, ConversationResponse, NewsItem, ChartConfig
 from app.schemas.stock import StockData
 from app.agents.master_agent import master_agent
 from app.integrations.groww import GrowwClient
-from app.integrations.gnews import GNewsClient
+from app.integrations.newsdata import NewsDataClient
 from typing import List
 from uuid import UUID
 
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/chat", tags=["Chat"])
 
 # Shared clients
 _groww = GrowwClient()
-_gnews = GNewsClient()
+_news_client = NewsDataClient()
 
 # Common Indian stock symbols for detection
 KNOWN_SYMBOLS = {
@@ -36,26 +36,22 @@ KNOWN_SYMBOLS = {
 
 
 def _extract_stock_symbols(text: str) -> List[str]:
-    """Extract potential stock symbols from text (user message + agent response)"""
+    """Extract potential stock symbols from text using word-boundary matching."""
     found = set()
     upper = text.upper()
 
-    # Check known symbols
+    # Check known symbols with word-boundary to avoid false positives
+    # e.g. "LT" should not match inside "RESULT" or "ALTERNATIVELY"
     for sym in KNOWN_SYMBOLS:
-        if sym in upper:
+        # Escape special chars like & for regex
+        escaped = re.escape(sym)
+        if re.search(rf'\b{escaped}\b', upper):
             found.add(sym)
 
     # Check NSE-XXX or BSE-XXX patterns
     pattern = re.findall(r'\b(NSE|BSE)-([A-Z&]+)\b', upper)
     for exchange, sym in pattern:
         found.add(sym)
-
-    # Check ₹ followed by a number (indicates price was mentioned, symbol likely nearby)
-    # Also look for stock-like uppercase words
-    words = re.findall(r'\b([A-Z][A-Z0-9&]{2,15})\b', upper)
-    for w in words:
-        if w in KNOWN_SYMBOLS:
-            found.add(w)
 
     return list(found)
 
@@ -115,7 +111,7 @@ async def chat(
         }).execute
     )
 
-    # ── Run AI Agent (LLM + Groww + GNews via tool calls) ──
+    # ── Run AI Agent (LLM + Groww + NewsData via tool calls) ──
     try:
         response_obj = master_agent.run(request.message, stream=False)
         answer_text = response_obj.content or "I couldn't process your request. Please try again."
@@ -125,7 +121,7 @@ async def chat(
         answer_text = "I encountered an issue processing your request. Please try again."
 
     # ── Extract structured data from the conversation ──
-    combined_text = f"{request.message} {answer_text}"
+    combined_text = request.message  # Only extract from user message, not LLM output
     symbols = _extract_stock_symbols(combined_text)
 
     # Fetch live stock data for mentioned symbols
@@ -146,7 +142,7 @@ async def chat(
         if symbols:
             # If we found stock symbols, search for the first one
             news_query = f"{symbols[0]} stock India"
-        articles = await _gnews.search_news(news_query, max_results=3)
+        articles = await _news_client.search_news(news_query, max_results=3)
         for article in articles:
             news_data.append({
                 "title": article["title"],
@@ -171,12 +167,21 @@ async def chat(
         }).execute
     )
 
+    # Build chart configs for detected stocks
+    chart_configs = []
+    for sym in symbols[:3]:  # Charts for up to 3 stocks
+        chart_configs.append(ChartConfig(
+            symbol=sym,
+            chart_type="candlestick",
+            data_url=f"/api/v1/charts/{sym}/history?duration=3M"
+        ))
+
     return ChatResponse(
         conversation_id=UUID(conversation_id),
         answer=answer_text,
         stocks=[StockData(**d) for d in stocks_data] if stocks_data else None,
         news=[NewsItem(**n) for n in news_data] if news_data else None,
-        charts=None
+        charts=chart_configs if chart_configs else None
     )
 
 

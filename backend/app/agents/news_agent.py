@@ -1,14 +1,37 @@
 """
-News Agent — fetches Indian stock market news via GNews API
+News Agent — fetches Indian stock market news via NewsData.io API
 """
 from phi.agent import Agent
 from app.config import settings
 from app.agents.shared_model import get_model
-import requests
+from app.integrations.newsdata import NewsDataClient
+import asyncio
+import concurrent.futures
+
+# Initialize shared client
+_news_client = NewsDataClient()
+
+# Thread pool for running async code from sync context
+_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
 
-GNEWS_SEARCH_URL = "https://gnews.io/api/v4/search"
-GNEWS_HEADLINES_URL = "https://gnews.io/api/v4/top-headlines"
+def _run_async(coro):
+    """Run an async coroutine from a sync context, even if an event loop is running."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        # We're inside an existing event loop (e.g. FastAPI)
+        # Run in a new thread with its own event loop
+        def _thread_run():
+            return asyncio.run(coro)
+        future = _executor.submit(_thread_run)
+        return future.result(timeout=15)
+    else:
+        # No running loop — safe to use asyncio.run
+        return asyncio.run(coro)
 
 
 def get_stock_news(query: str) -> str:
@@ -22,25 +45,11 @@ def get_stock_news(query: str) -> str:
     Returns:
         str: Formatted summary of top news articles with titles, sources, and URLs.
     """
-    api_key = settings.GNEWS_API_KEY
-    if not api_key:
-        return "News search is not available (GNEWS_API_KEY not configured)."
+    if not _news_client.enabled:
+        return "News search is not available (NEWSDATA_API_KEY not configured)."
 
     try:
-        params = {
-            "q": query,
-            "lang": "en",
-            "country": "in",
-            "max": 5,
-            "token": api_key,
-        }
-        response = requests.get(GNEWS_SEARCH_URL, params=params, timeout=10)
-        
-        if response.status_code != 200:
-            return f"Error fetching news: HTTP {response.status_code}"
-
-        data = response.json()
-        articles = data.get("articles", [])
+        articles = _run_async(_news_client.search_news(query=query, max_results=5))
 
         if not articles:
             return f"No recent news found for '{query}'."
@@ -48,15 +57,17 @@ def get_stock_news(query: str) -> str:
         lines = [f"📰 **Latest News: {query}**\n"]
         for i, article in enumerate(articles, 1):
             title = article.get("title", "No title")
-            source = article.get("source", {}).get("name", "Unknown")
+            source = article.get("source", "Unknown")
             url = article.get("url", "")
-            published = article.get("publishedAt", "")[:10]  # date only
-            description = article.get("description", "")[:150]
+            published = article.get("published_at", "")[:16]
+            description = article.get("description", "")
+            if description and len(description) > 150:
+                 description = description[:150] + "..."
 
             lines.append(f"**{i}. {title}**")
             lines.append(f"   📅 {published} | 📌 {source}")
             if description:
-                lines.append(f"   {description}...")
+                lines.append(f"   {description}")
             lines.append(f"   🔗 [Read more]({url})")
             lines.append("")
 
@@ -73,25 +84,11 @@ def get_market_headlines() -> str:
     Returns:
         str: Top 5 Indian business headlines with sources and links.
     """
-    api_key = settings.GNEWS_API_KEY
-    if not api_key:
-        return "News headlines not available (GNEWS_API_KEY not configured)."
+    if not _news_client.enabled:
+        return "News headlines not available (NEWSDATA_API_KEY not configured)."
 
     try:
-        params = {
-            "category": "business",
-            "lang": "en",
-            "country": "in",
-            "max": 5,
-            "token": api_key,
-        }
-        response = requests.get(GNEWS_HEADLINES_URL, params=params, timeout=10)
-
-        if response.status_code != 200:
-            return f"Error fetching headlines: HTTP {response.status_code}"
-
-        data = response.json()
-        articles = data.get("articles", [])
+        articles = _run_async(_news_client.get_top_headlines(category="business", max_results=5))
 
         if not articles:
             return "No business headlines available right now."
@@ -99,7 +96,7 @@ def get_market_headlines() -> str:
         lines = ["📰 **Top Indian Business Headlines**\n"]
         for i, article in enumerate(articles, 1):
             title = article.get("title", "No title")
-            source = article.get("source", {}).get("name", "Unknown")
+            source = article.get("source", "Unknown")
             url = article.get("url", "")
             lines.append(f"**{i}. {title}**")
             lines.append(f"   📌 {source} | 🔗 [Read]({url})")

@@ -22,6 +22,7 @@ growwapi
 pycountry
 duckduckgo-search
 requests
+yfinance
 
 # Validation
 pydantic

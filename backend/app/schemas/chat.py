@@ -24,13 +24,20 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[UUID] = None
 
 
+class ChartConfig(BaseModel):
+    """Chart configuration embedded in chat response"""
+    symbol: str
+    chart_type: str = "candlestick"  # candlestick | line | volume
+    data_url: str  # /api/v1/charts/{symbol}/history?duration=3M
+
+
 class ChatResponse(BaseModel):
     """AI response with structured data"""
     conversation_id: UUID
     answer: str = Field(..., description="Natural language response")
     stocks: Optional[List[StockData]] = Field(None, description="Relevant stock data")
     news: Optional[List[NewsItem]] = Field(None, description="Relevant news articles")
-    charts: Optional[dict] = Field(None, description="Chart configurations")
+    charts: Optional[List[ChartConfig]] = Field(None, description="Chart configs for frontend rendering")
 
 
 class MessageResponse(BaseModel):

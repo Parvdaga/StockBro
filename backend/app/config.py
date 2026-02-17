@@ -36,7 +36,15 @@ class Settings:
     GROWW_USER_ID: Optional[str] = os.getenv("GROWW_USER_ID")
     
     # News APIs
-    GNEWS_API_KEY: Optional[str] = os.getenv("GNEWS_API_KEY")
+    NEWSDATA_API_KEY: Optional[str] = os.getenv("NEWSDATA_API_KEY")
+    
+    # Cache settings (seconds)
+    NEWS_CACHE_TTL: int = int(os.getenv("NEWS_CACHE_TTL", "600"))
+    PRICE_CACHE_TTL: int = int(os.getenv("PRICE_CACHE_TTL", "30"))
+    HISTORY_CACHE_TTL: int = int(os.getenv("HISTORY_CACHE_TTL", "300"))
+    
+    # Rate limiting
+    NEWSDATA_RATE_LIMIT_INTERVAL: float = float(os.getenv("NEWSDATA_RATE_LIMIT", "7.0"))
     
     # Supabase (Database & Auth)
     SUPABASE_URL: Optional[str] = os.getenv("SUPABASE_URL")

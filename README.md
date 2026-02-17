@@ -1,118 +1,153 @@
-# StockBro AI
+# StockBro AI 📈
 
-StockBro AI is an AI-driven multi-agent system designed to empower retail investors, analysts, and financial enthusiasts with real-time stock market insights, news sentiment analysis, and advanced scenario-based simulations.
-
-It combines Next.js frontend with ChatGPT-style chat, intelligent Python-based finance agents, and powerful LLMs to deliver an interactive and explainable financial analysis platform.
-
-## 🔍 Overview
-
-StockBro AI provides:
-
-- Real-time stock market insights & analytics (e.g., price, volume, P/E, EPS, revenue)
-- Multi-agent architecture powered by Python + Phidata (or LangChain), where specialized agents handle finance, news, and simulations
-- Built-in LLM agents (Llama 3.1 via GroqCloud or Gemini fallback) for intelligent reasoning, summarization, and narrative generation
-- Live financial news fetching & sentiment analysis using APIs such as Finnhub and NewsAPI
-- What-if simulations: explore how changes in financial variables affect outcomes with tables, charts, and narratives
-- Extensible, modular design: easily plug in new agents, APIs, features, or dashboards
+An AI-powered stock analysis assistant for the **Indian stock market** (NSE/BSE). Chat with StockBro to get real-time stock prices, market news, candlestick charts, and analyst-style insights — all powered by LLMs and live data.
 
 ## 🛠 Tech Stack
 
-| Layer | Technology/Tools |
-|-------|------------------|
-| Frontend & API | Next.js (serverless API routes, auth, UI) |
-| Agent Core | Python, Phidata, LangChain |
-| LLMs | Llama 3.1 (GroqCloud), Gemini APIs |
-| Data/Processing | Pandas, NumPy, Plotly/Matplotlib, Scikit-learn |
-| Database/Auth | Supabase (PostgreSQL + auth) |
-| Hosting (Frontend) | Vercel |
-| Hosting (Agents) | Railway (Python microservices) |
-| CI/CD | GitHub Actions |
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Streamlit (Python) |
+| Backend API | FastAPI (Python) |
+| LLM | Groq (Llama 3.3-70b) / Gemini fallback |
+| Stock Data | Groww API (live prices + historical OHLCV) |
+| News | NewsData.io (Indian stock market news) |
+| Database & Auth | Supabase (PostgreSQL + Auth) |
+| Visualization | Plotly (candlestick & line charts) |
+| Agent Framework | Phidata (multi-agent orchestration) |
 
-## ⚙️ Environment Setup
+## ⚙️ Quick Start
 
-Create a `.env` file to configure environment variables before running:
+### 1. Clone & Setup
 
 ```bash
-# Backend Agents
-FINNHUB_API_KEY=your_finnhub_key
-NEWS_API_KEY=your_newsapi_key
-GROQ_API_KEY=your_groqcloud_key
-OPENAI_API_KEY=your_openai_key  # optional fallback
-
-# Frontend (Next.js)
-NEXT_PUBLIC_API_URL=https://api.stockbro.ai
-NEXT_PUBLIC_SUPABASE_URL=https://xyzcompany.supabase.co
-NEXT_PUBLIC_SUPABASE_KEY=your_supabase_key
+git clone https://github.com/Parvdaga/StockBro.git
+cd StockBro
 ```
 
-## 🚀 Installation & Running
-
-Clone repo and set up virtual environment:
+### 2. Backend
 
 ```bash
-git clone https://github.com/your-username/StockBroAI.git
-cd StockBroAI
-
-# Setup Backend (Agents)
+cd backend
 python -m venv venv
-source venv/bin/activate   # or `venv\Scripts\activate` for Windows
-pip install -r agents/requirements.txt
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # macOS/Linux
 
-# Run Orchestrator / Agents
-python agents/orchestrator.py
+pip install -r requirements.txt
+cp .env.example .env           # Then fill in your API keys
 ```
 
-Run frontend in dev mode:
+### 3. Configure `.env`
+
+| Variable | Source | Required |
+|----------|--------|----------|
+| `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) | ✅ |
+| `NEWSDATA_API_KEY` | [newsdata.io](https://newsdata.io/) | ✅ |
+| `SUPABASE_URL` | Supabase dashboard | ✅ |
+| `SUPABASE_ANON_KEY` | Supabase dashboard | ✅ |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard | ✅ |
+| `GROWW_API_KEY` | Groww SDK (optional) | ❌ |
+| `GOOGLE_API_KEY` | Google AI Studio (Gemini fallback) | ❌ |
+
+See [backend/.env.example](backend/.env.example) for all variables with defaults.
+
+### 4. Run
 
 ```bash
-cd frontend
-npm install
-npm run dev
+# Terminal 1 — Backend
+cd backend
+uvicorn main:app --reload
+
+# Terminal 2 — Frontend
+cd ..
+python -m streamlit run streamlit_app/main.py
 ```
 
-- Backend runs on Railway (microservices)
-- Frontend/API hosted on Vercel
+- Backend: [http://localhost:8000/docs](http://localhost:8000/docs) (Swagger UI)
+- Frontend: [http://localhost:8501](http://localhost:8501)
 
-## 📊 Core Features
+## 📊 Features
 
-### ChatGPT-style Homepage
-- Ask questions like "What's the latest on AAPL?"
-- Real-time AI-powered responses with charts, news, and metrics
-- Suggested queries & scrollable history
+### 💬 Chat with StockBro
+Ask about any Indian stock — get structured responses with price data, insights, and disclaimers.
 
-### Dashboard
-- Market snapshot & portfolio view
-- Watchlist integration with Supabase
-- News digest & interactive analytics charts
+### 📈 Market Dashboard
+Search any NSE stock to see live prices, candlestick charts, and recent news side by side.
 
-### Ticker Detail Page
-- Real-time charts & fundamentals
-- Analyst recommendations & sentiment analysis
-- What-if simulation panel
+### 📋 Watchlists
+Create and manage personal stock watchlists (saved in Supabase).
 
-### Watchlist
-- Track favorite stocks with quick add/remove
-- Snapshots of stock performance
+### 🔄 API Endpoints
 
-### What-If Simulation
-- Input custom scenarios (e.g., revenue growth changes)
-- Outputs sensitivity tables + narrative insights
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/v1/chat/` | Chat with AI analyst |
+| `GET /api/v1/stocks/{symbol}` | Live stock price |
+| `GET /api/v1/stocks/trending` | Trending Indian stocks |
+| `GET /api/v1/charts/{symbol}/history?duration=3M` | Historical OHLCV for charting |
+| `GET /api/v1/news/search?q=topic` | Search news articles |
+| `GET /api/v1/news/headlines` | Top business headlines |
 
-### Authentication
-- User accounts (signup/login)
-- Persistent sessions via Supabase
+## 🧪 Testing
 
-## 📚 Related Research & Papers
+```bash
+cd backend
 
+# Unit tests (mocked — no API keys needed)
+python -m pytest tests/unit/ -v
 
-| Title | Authors | Summary | Link |
-|-------|---------|---------|------|
-| AI-Driven Financial Advisory: The Rise of Robo-Advisors | A. Kashyap | Examines the transformational impact of AI-powered robo-advisors on financial services, focusing on automation, efficiency, potential biases, regulatory issues, broader accessibility, and their effects on the finance industry. | [Read](https://papers.ssrn.com/sol3/Delivery.cfm/5268858.pdf?abstractid=5268858&mirid=1) |
-| An AI Analyst Made 30 Years of Stock Picks – Stanford Report | E. deHaan et al. | Presents a 30-year longitudinal study where an AI analyst outperformed 93% of mutual fund managers, highlighting the scalability and game-changing implications for asset management. | [Read Stanford News](https://news.stanford.edu/stories/2025/06/ai-stock-analyst-analysis-performance-human-mutual-fund-managers#:~:text=min%20readBusiness-,An%20AI%20analyst%20made%2030%20years%20of%20stock%20picks%20%E2%80%93%20and,by%20an%20average%20of%20600%25) / [Read Paper](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5198854) |
-| Leveraging AI Multi-Agent Systems in Financial Analysis | R. Bhattacharya | Discusses the integration of multi-agent AI systems in financial analytics, highlighting collaborative workflows, advanced risk modeling, and the ongoing challenges of explainability in finance. | [Read](https://cacm.acm.org/blogcacm/leveraging-ai-multi-agent-systems-in-financial-analysis/#:~:text=AI%2Dpowered%20multi%2Dagent%20systems) |
-| Large Language Models in Equity Markets: Applications and Risks | Anonymous | Synthesizes findings from 84 research papers regarding LLMs in equity finance, emphasizing their power in sentiment mining and detecting market anomalies, while also addressing risks like overfitting and ethical considerations. | [Read](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5198854) |
-| Architectures and Challenges of AI Multi-Agent Systems in Finance | S. Joshi | Reviews advanced frameworks such as LangChain and Phidata for finance, focusing on multi-agent orchestration, latency issues, transparency, and regulatory hurdles unique to the sector. | [Read](https://journalcjast.com/index.php/CJAST/article/view/4558#:~:text=Despite%20the%20transformative%20potential%20of) |                                          |  Read                         
+# Integration tests (requires running backend + valid keys)
+python -m pytest tests/integration/ -v
+```
+
+## 📁 Project Structure
+
+```
+StockBro/
+├── backend/
+│   ├── main.py                     # FastAPI entry point
+│   ├── requirements.txt
+│   ├── .env.example                # All env vars documented
+│   ├── app/
+│   │   ├── config.py               # Settings + cache/rate-limit config
+│   │   ├── integrations/
+│   │   │   ├── cache.py            # TTL cache utility
+│   │   │   ├── retry.py            # Exponential backoff
+│   │   │   ├── newsdata.py         # NewsData.io client (cached, retried)
+│   │   │   └── groww.py            # Groww client (live + historical + cached)
+│   │   ├── agents/
+│   │   │   ├── shared_model.py     # Groq/Gemini LLM selection
+│   │   │   ├── master_agent.py     # Main AI orchestrator
+│   │   │   ├── finance_agent.py    # Stock price tools
+│   │   │   └── news_agent.py       # News tools
+│   │   ├── api/v1/
+│   │   │   ├── router.py           # Route aggregator
+│   │   │   ├── chat.py             # Chat endpoint
+│   │   │   ├── stocks.py           # Stock data endpoints
+│   │   │   ├── news.py             # News proxy endpoint
+│   │   │   ├── charts.py           # Chart data endpoint
+│   │   │   ├── auth.py             # Authentication
+│   │   │   └── watchlist.py        # Watchlist CRUD
+│   │   └── schemas/
+│   │       ├── stock.py            # StockData, ChartDataPoint, ChartDataResponse
+│   │       └── chat.py             # ChatRequest, ChatResponse, ChartConfig
+│   └── tests/
+│       ├── unit/                   # Mocked unit tests
+│       └── integration/            # Live integration tests
+├── streamlit_app/
+│   ├── main.py                     # Streamlit frontend
+│   └── requirements.txt
+└── README.md
+```
+
+## 📚 Related Research
+
+| Title | Summary |
+|-------|---------|
+| AI-Driven Financial Advisory: The Rise of Robo-Advisors | Examines AI-powered robo-advisors' impact on financial services |
+| An AI Analyst Made 30 Years of Stock Picks (Stanford) | AI analyst outperformed 93% of mutual fund managers over 30 years |
+| Leveraging AI Multi-Agent Systems in Financial Analysis | Multi-agent AI integration in financial analytics |
+| Large Language Models in Equity Markets | LLMs for sentiment mining and detecting market anomalies |
 
 ## ⚠️ Disclaimer
 
-StockBro AI outputs are not financial advice. Always consult professionals and conduct your own research before making investment decisions. Models and agents may produce errors, outdated responses, or biased interpretations.
+StockBro AI outputs are **not financial advice**. Always consult professionals and conduct your own research before making investment decisions. Models may produce errors, outdated responses, or biased interpretations.
