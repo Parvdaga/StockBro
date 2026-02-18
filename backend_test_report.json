@@ -1,0 +1,54 @@
+{
+  "passed": 0,
+  "failed": 8,
+  "details": [
+    {
+      "test": "GET /",
+      "status": "FAIL",
+      "message": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: / (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+      "timestamp": "22:29:47"
+    },
+    {
+      "test": "GET /health",
+      "status": "FAIL",
+      "message": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /health (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+      "timestamp": "22:29:51"
+    },
+    {
+      "test": "GET /stocks/search",
+      "status": "FAIL",
+      "message": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/v1/stocks/search?q=RELIANCE (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+      "timestamp": "22:29:55"
+    },
+    {
+      "test": "GET /stocks/trending",
+      "status": "FAIL",
+      "message": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/v1/stocks/trending (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+      "timestamp": "22:29:59"
+    },
+    {
+      "test": "GET /stocks/RELIANCE",
+      "status": "FAIL",
+      "message": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/v1/stocks/RELIANCE (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+      "timestamp": "22:30:03"
+    },
+    {
+      "test": "GET /auth/me",
+      "status": "FAIL",
+      "message": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/v1/auth/me (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+      "timestamp": "22:30:14"
+    },
+    {
+      "test": "POST /watchlists/",
+      "status": "FAIL",
+      "message": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/v1/watchlists/ (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+      "timestamp": "22:30:18"
+    },
+    {
+      "test": "POST /chat/",
+      "status": "FAIL",
+      "message": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/v1/chat/ (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it\"))",
+      "timestamp": "22:30:22"
+    }
+  ]
+}

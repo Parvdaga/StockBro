@@ -25,6 +25,6 @@ echo.
 echo 🚀 Starting Server on http://localhost:8000
 echo 📝 API Docs available at http://localhost:8000/api/v1/docs
 echo.
-python -m uvicorn main:app --reload
+python -m uvicorn app.main:app --reload
 
 pause

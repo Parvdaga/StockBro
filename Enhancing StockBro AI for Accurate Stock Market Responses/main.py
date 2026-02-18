@@ -286,7 +286,7 @@ if not st.session_state.authenticated:
     Login to start chatting with our intelligent agent about the Indian stock market,
     get real-time data, and manage your portfolio.
     """)
-    st.image("https://images.unsplash.com/photo-1611974765215-60d978396071?q=80&w=2070&auto=format&fit=crop", use_container_width=True)
+    st.image("https://images.unsplash.com/photo-1611974765215-60d978396071?q=80&w=2070&auto=format&fit=crop", width="stretch")
 
 else:
     # ─── Chat Interface ───────────────────────
